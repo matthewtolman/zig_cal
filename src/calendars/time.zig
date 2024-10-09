@@ -2,6 +2,7 @@ const toTypeMath = @import("../utils.zig").types.toTypeMath;
 const m = @import("std").math;
 const math = @import("../utils.zig").math;
 const assert = @import("std").debug.assert;
+const ValidationError = @import("./core.zig").ValidationError;
 
 //                 ns/s s/m   m/h  h/d
 const nanoPerDay = 1e9 * 60 * 60 * 24;
@@ -29,52 +30,65 @@ pub const Segments = struct {
     /// 0-59 - we don't do leap seconds
     second: u8,
     /// 0-99,999,999
-    nano: u32,
+    nano: u32 = 0,
+
+    /// Will attempt to initialize
+    /// If invalid parameters are provided, will return validation errors
+    pub fn init(hour: u8, minute: u8, second: u8, nano: u32) !Segments {
+        const res = Segments{
+            .hour = hour,
+            .minute = minute,
+            .second = second,
+            .nano = nano,
+        };
+        try res.validate();
+        return res;
+    }
 
     /// Checks whether the current segment is valid
-    /// Cannot run other methods if this is valid
-    pub fn valid(self: Segments) bool {
+    pub fn validate(self: Segments) !void {
         if (self.hour >= 24) {
-            return false;
+            return ValidationError.InvalidHour;
         }
 
         if (self.minute >= 60) {
-            return false;
+            return ValidationError.InvalidMinute;
         }
 
         if (self.second >= 60) {
-            return false;
+            return ValidationError.InvalidSecond;
         }
 
         if (self.nano >= 1e9) {
-            return false;
+            return ValidationError.InvalidNano;
         }
-
-        return true;
     }
 
     /// Converts time segments to nanoseconds
-    pub fn toNanoSeconds(self: Segments) NanoSeconds {
-        assert(self.valid());
+    pub fn toNanoSeconds(self: Segments) !NanoSeconds {
+        try self.validate();
         const hours = toTypeMath(u64, self.hour);
         const minutes = hours * 60 + toTypeMath(u64, self.minute);
         const seconds = minutes * 60 + toTypeMath(u64, self.second);
         const nano = seconds * 1e9 + toTypeMath(u64, self.nano);
         const res = NanoSeconds{ .nano = nano };
-        assert(res.valid());
+
+        assert(res.validate() != ValidationError);
         return res;
     }
 
     /// Converts time segments to day fraction
-    pub fn toDayFraction(self: Segments) DayFraction {
-        return self.toNanoSeconds().toDayFraction();
+    pub fn toDayFraction(self: Segments) !DayFraction {
+        const nano = try self.toNanoSeconds();
+        assert(nano.validate() != ValidationError);
+        const res = nano.toDayFraction();
+        assert(res.validate() != ValidationError);
+        return res;
     }
 
+    /// Compares two segments
     pub fn compare(self: Segments, other: Segments) i32 {
-        assert(self.valid());
-        assert(other.valid());
-
-        var res = 0;
+        var res: i32 = 0;
 
         if (self.hour != other.hour) {
             res = if (self.hour < other.hour) -1 else 1;
@@ -103,39 +117,50 @@ pub const DayFraction = struct {
     /// An invalid fraction is "undefined behavior" (i.e. crash in safe mode)
     frac: f64,
 
+    /// Create a new DayFraction
+    pub fn init(frac: f64) !DayFraction {
+        const res = DayFraction{ .frac = frac };
+        try res.validate();
+        return res;
+    }
+
     /// Checks if instance is valid
     /// Cannot run other methods if not valid
-    pub fn valid(self: DayFraction) bool {
+    pub fn validate(self: DayFraction) !void {
         if (!m.isFinite(self.frac)) {
-            return false;
+            return ValidationError.InvalidFraction;
         }
         if (self.frac < 0) {
-            return false;
+            return ValidationError.InvalidFraction;
         }
         if (self.frac >= 1) {
-            return false;
+            return ValidationError.InvalidFraction;
         }
-        return true;
     }
 
     /// Converts day fraction to nano seconds
-    pub fn toNanoSeconds(self: DayFraction) NanoSeconds {
-        assert(self.valid());
+    pub fn toNanoSeconds(self: DayFraction) !NanoSeconds {
+        try self.validate();
         const nanoSeconds = toTypeMath(u64, m.floor(self.frac * nanoPerDay));
         const res = NanoSeconds{ .nano = nanoSeconds };
-        assert(res.valid());
+
+        assert(res.validate() != ValidationError);
         return res;
     }
 
     /// Converts day fraction to segments
-    pub fn toSegments(self: DayFraction) Segments {
-        return self.toNanoSeconds().toSegments();
+    pub fn toSegments(self: DayFraction) !Segments {
+        const nano = try self.toNanoSeconds();
+        assert(nano.validate() != ValidationError);
+        const res = nano.toSegments();
+        assert(res.validate() != ValidationError);
+        return res;
     }
 
     /// Compares two day fractions and returns -1, 0, or 1
-    pub fn compare(self: DayFraction, other: DayFraction) i32 {
-        assert(self.valid());
-        assert(other.valid());
+    pub fn compare(self: DayFraction, other: DayFraction) !i32 {
+        try self.validate();
+        try other.validate();
 
         var res = 0;
         if (self.frac != other.frac) {
@@ -153,25 +178,34 @@ pub const NanoSeconds = struct {
     /// Must be in the range [0..nanoPerDay)
     nano: u64,
 
+    /// Create a new DayFraction
+    pub fn init(nano: u64) !NanoSeconds {
+        const res = NanoSeconds{ .nano = nano };
+        try res.validate();
+        return res;
+    }
+
     /// Checks if instance is valid
     /// Cannot run other methods if not valid
-    pub fn valid(self: NanoSeconds) bool {
-        return self.nano < nanoPerDay;
+    pub fn validate(self: NanoSeconds) !void {
+        if (self.nano >= nanoPerDay) {
+            return ValidationError.InvalidNano;
+        }
     }
 
     /// Converts nano seconds to day fraction
-    pub fn toDayFraction(self: NanoSeconds) DayFraction {
-        assert(self.valid());
+    pub fn toDayFraction(self: NanoSeconds) !DayFraction {
+        try self.validate();
         // yay precision loss!
         const nano = @as(f64, @floatFromInt(self.nano));
         const res = DayFraction{ .frac = nano / nanoPerDay };
-        assert(res.valid());
+        assert(res.validate() != ValidationError);
         return res;
     }
 
     /// Converts nano seconds to segments
-    pub fn toSegments(self: NanoSeconds) Segments {
-        assert(self.valid());
+    pub fn toSegments(self: NanoSeconds) !Segments {
+        try self.validate();
 
         var val: u64 = self.nano;
 
@@ -195,15 +229,12 @@ pub const NanoSeconds = struct {
             .nano = nano,
         };
 
-        assert(res.valid());
+        assert(res.validate() != ValidationError);
         return res;
     }
 
     /// Compares two day fractions and returns -1, 0, or 1
     pub fn compare(self: NanoSeconds, other: NanoSeconds) i32 {
-        assert(self.valid());
-        assert(other.valid());
-
         var res = 0;
         if (self.nano != other.nano) {
             res = if (self.nano < other.nano) -1 else 1;

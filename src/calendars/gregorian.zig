@@ -9,7 +9,10 @@ const fmt = @import("std").fmt;
 const mem = @import("std").mem;
 const fixed = @import("./fixed.zig");
 const AstronomicalYear = @import("./core.zig").AstronomicalYear;
+const validateAstroYear = @import("./core.zig").validateAstroYear;
 const astroToAD = @import("./core.zig").astroToAD;
+const ValidationError = @import("./core.zig").ValidationError;
+const CalendarDateTime = @import("./wrappers.zig").CalendarDateTime;
 
 /// Represents the gregorian months
 pub const Month = enum(u8) {
@@ -59,12 +62,14 @@ fn yearFromFixed(fixedDate: fixed.Date) AstronomicalYear {
 
 /// Gets a date representing the start of a year
 fn yearStart(year: AstronomicalYear) Date {
+    validateAstroYear(year) catch unreachable;
     return Date{ .year = year, .month = .January, .day = 1 };
 }
 
 /// Gets a date representing the end of a year
 fn yearEnd(year: AstronomicalYear) Date {
-    return Date{ .year = year, .month = .January, .day = 1 };
+    validateAstroYear(year) catch unreachable;
+    return Date{ .year = year, .month = .December, .day = 31 };
 }
 
 /// Implmentation of isLeapYear
@@ -92,55 +97,6 @@ fn daysInMonth(month: Month, year: AstronomicalYear) u8 {
     };
 }
 
-/// Gets a gregorian date from a fixed date
-/// Used for conversions between date systems
-/// Can also be used during long day-based math operations
-pub fn dateFromFixed(fixedDate: fixed.Date) Date {
-    const year = yearFromFixed(fixedDate);
-    const yStart = yearStart(year);
-    const yearStartFixed = yStart.toFixed();
-
-    assert(yearStartFixed.day <= fixedDate.day);
-
-    const priorDays = fixedDate.day - yearStartFixed.day;
-
-    // Used for leap year adjustments
-    const marchFirst = Date{ .year = year, .month = .March, .day = 1 };
-    const marchFirstFixed = marchFirst.toFixed();
-    const correction: i32 = switch (fixedDate.day < marchFirstFixed.day) {
-        true => 0,
-        false => if (isLeapYear(year)) 1 else 2,
-    };
-
-    const monthVal = @divFloor(12 * (priorDays + correction) + 373, 367);
-    assert(monthVal >= 1);
-    assert(monthVal <= 12);
-
-    const month: Month = @enumFromInt(monthVal);
-    assert(@intFromEnum(month) >= @intFromEnum(Month.January));
-    assert(@intFromEnum(month) <= @intFromEnum(Month.December));
-
-    const firstOfMonth = Date{ .year = year, .month = month, .day = 1 };
-    const firstOfMonthFixed = firstOfMonth.toFixed();
-    assert(firstOfMonthFixed.day <= fixedDate.day);
-
-    const dayRaw = fixedDate.day - firstOfMonthFixed.day + 1;
-    const day = types.toTypeMath(u8, dayRaw);
-    assert(day <= daysInMonth(month, year));
-
-    return Date{ .year = year, .month = month, .day = day };
-}
-
-/// Gets a gregorian date from a fixed date
-/// Used for conversions between date systems
-/// Can also be used during long day-based math operations
-pub fn dateTimeFromFixed(fixedDate: fixed.DateTime) DateTime {
-    return DateTime{
-        .date = dateFromFixed(fixedDate),
-        .time = fixedDate.time,
-    };
-}
-
 /// Represents a date on the Gregorian Calendar system.
 /// This calendar uses the Astronomical year counting system which includes 0.
 /// Year 0 correspondes to 1 B.C. on the Anno Domini system of counting.
@@ -162,6 +118,92 @@ pub const Date = struct {
     year: AstronomicalYear = @enumFromInt(0),
     month: Month = .January,
     day: u8 = 1,
+
+    /// Creates a new Gregorian date
+    pub fn init(year: AstronomicalYear, month: Month, day: u8) !Date {
+        const res = Date{ .year = year, .month = month, .day = day };
+        try res.validate();
+        return res;
+    }
+
+    pub fn initNums(year: i32, month: i32, day: i32) !Date {
+        const y: AstronomicalYear = @enumFromInt(year);
+        try validateAstroYear(y);
+
+        if (month < 1 or month > 12) {
+            return ValidationError.InvalidMonth;
+        }
+
+        if (day > 31 or day < 1) {
+            return ValidationError.InvalidDay;
+        }
+
+        return init(y, @enumFromInt(month), @intCast(day));
+    }
+
+    /// Validates a date
+    pub fn validate(self: Date) !void {
+        if (@intFromEnum(self.month) < 1 or @intFromEnum(self.month) > 12) {
+            return ValidationError.InvalidMonth;
+        }
+
+        try validateAstroYear(self.year);
+
+        const dayMax = daysInMonth(self.month, self.year);
+        if (self.day > dayMax) {
+            return ValidationError.InvalidDay;
+        }
+    }
+
+    /// Converts a potentially invalid date to a valid date
+    pub fn nearestValid(self: Date) Date {
+        var res = self;
+
+        self.validate() catch {
+            res = Date.fromFixed(self.toFixed());
+        };
+
+        return res;
+    }
+
+    /// Creates a Gregorian date from a fixed date
+    pub fn fromFixed(fixedDate: fixed.Date) Date {
+        const year = yearFromFixed(fixedDate);
+        const yStart = yearStart(year);
+        const yearStartFixed = yStart.toFixed();
+
+        assert(yearStartFixed.day <= fixedDate.day);
+
+        const priorDays = fixedDate.day - yearStartFixed.day;
+
+        // Used for leap year adjustments
+        const marchFirst = Date{ .year = year, .month = .March, .day = 1 };
+        const marchFirstFixed = marchFirst.toFixed();
+        const correction: i32 = switch (fixedDate.day < marchFirstFixed.day) {
+            true => 0,
+            false => if (leapYear(year)) 1 else 2,
+        };
+
+        const monthVal = @divFloor(12 * (priorDays + correction) + 373, 367);
+        assert(monthVal >= 1);
+        assert(monthVal <= 12);
+
+        const month: Month = @enumFromInt(monthVal);
+        assert(@intFromEnum(month) >= @intFromEnum(Month.January));
+        assert(@intFromEnum(month) <= @intFromEnum(Month.December));
+
+        const firstOfMonth = Date{ .year = year, .month = month, .day = 1 };
+        const firstOfMonthFixed = firstOfMonth.toFixed();
+        assert(firstOfMonthFixed.day <= fixedDate.day);
+
+        const dayRaw = fixedDate.day - firstOfMonthFixed.day + 1;
+        const day = types.toTypeMath(u8, dayRaw);
+        assert(day <= daysInMonth(month, year));
+
+        const res = Date{ .year = year, .month = month, .day = day };
+        res.validate() catch unreachable;
+        return res;
+    }
 
     /// Converts date to a Fixed date
     /// Used for calendar conversions
@@ -228,8 +270,12 @@ pub const Date = struct {
     ) !void {
         _ = options;
 
+        self.validate() catch {
+            try writer.print("INVALID: ", .{});
+        };
+
         if (mem.eql(u8, f, "s")) {
-            const y = @intFromEnum(astroToAD(self.year));
+            const y = @intFromEnum(try astroToAD(self.year));
             const month = @tagName(self.month);
             const adOrBc = if (y > 0) "A.D." else "B.C.";
             const yAbs = @as(u32, @intCast(y * m.sign(y)));
@@ -262,12 +308,9 @@ pub const Date = struct {
 
     /// The difference between this date and another date in days
     pub fn dayDifference(self: Date, other: Date) i32 {
-        const left = @as(i64, self.toFixed().day);
-        const right = @as(i64, other.toFixed().day);
-        const res = left - right;
-        assert(res >= m.minInt(i32));
-        assert(res <= m.maxInt(i32));
-        return @as(i32, @intCast(res));
+        const left = self.toFixed().day;
+        const right = other.toFixed().day;
+        return left - right;
     }
 
     /// Compares two dates
@@ -293,12 +336,53 @@ pub const Date = struct {
         return 0;
     }
 
-    // pub fn dayNumber(self: Date) i32 {
-    //     const prevYearEnd = Date{
-    //         .year = @enumFromInt(@intFromEnum(self.year) - 1),
-    //     };
-    // }
+    /// Gets the day number of the day in the current year (1-366)
+    pub fn dayNumber(self: Date) i32 {
+        const date = self.nearestValid();
+        const prevYearInt = @intFromEnum(date.year) - 1;
+        const prevYear: AstronomicalYear = @enumFromInt(prevYearInt);
+        const end = yearEnd(prevYear);
+        const res = date.dayDifference(end);
+        assert(res >= 1);
+        assert(if (date.isLeapYear()) res <= 366 else res <= 365);
+        return res;
+    }
+
+    /// Gets the number of days remaining in the current year (0-365)
+    pub fn daysRemaining(self: Date) i32 {
+        const date = self.nearestValid();
+        const end = yearEnd(date.year);
+        const res = end.dayDifference(date);
+        assert(res >= 0);
+        assert(if (date.isLeapYear()) res <= 365 else res <= 364);
+        return res;
+    }
 };
+
+test "days in year" {
+    const testCases = [_]Date{
+        try Date.initNums(2020, 12, 28),
+        try Date.initNums(-256, 3, 2),
+        try Date.initNums(4, 2, 29),
+        Date{
+            .year = @enumFromInt(2020),
+            .month = @enumFromInt(2),
+            .day = 38,
+        },
+    };
+
+    for (testCases) |testCase| {
+        const expected: i32 = if (testCase.isLeapYear()) 366 else 365;
+        try testing.expectEqual(
+            testCase.dayNumber() + testCase.daysRemaining(),
+            expected,
+        );
+
+        const mismatched = testCase.dayNumber() != testCase.daysRemaining();
+        const midPoint = expected == 366 and testCase.dayNumber() == 366 / 2;
+        try testing.expect(mismatched or midPoint);
+    }
+}
 
 test "gregorian conversions" {
     const fixedDates = @import("./test_helpers.zig").sampleDates;
@@ -341,6 +425,8 @@ test "gregorian conversions" {
 
     assert(fixedDates.len == expected.len);
 
+    const timeSegment = try time.Segments.init(12, 0, 0, 0);
+
     for (fixedDates, 0..) |fixedDate, index| {
         const e = expected[index];
 
@@ -349,8 +435,15 @@ test "gregorian conversions" {
         try testing.expectEqual(fixedDate.day, actualFixed.day);
 
         // Test converting from fixed
-        const actualGreg = dateFromFixed(fixedDate);
+        const actualGreg = Date.fromFixed(fixedDate);
         try testing.expect(0 == actualGreg.compare(e));
+
+        const fixedDateTime = fixed.DateTime{
+            .date = fixedDate,
+            .time = timeSegment,
+        };
+        const actualGregTime = try DateTime.fromFixed(fixedDateTime);
+        try testing.expectEqual(0, actualGregTime.date.compare(e));
     }
 }
 
@@ -422,7 +515,7 @@ test "gregorian leap year" {
     );
     try testing.expect(
         (Date{
-            .year = adToAstro(@as(AnnoDominiYear, @enumFromInt(-1))),
+            .year = try adToAstro(@as(AnnoDominiYear, @enumFromInt(-1))),
         }).isLeapYear(),
     );
     try testing.expect((Date{ .year = @enumFromInt(4) }).isLeapYear());
@@ -438,14 +531,20 @@ test "gregorian leap year" {
 }
 
 /// Represents a gregorian date and time combination
-pub const DateTime = struct {
-    date: Date,
-    time: time.Segments,
+pub const DateTime = CalendarDateTime(Date, time.Segments);
 
-    pub fn toFixed(self: DateTime) fixed.DateTime {
-        return fixed.DateTime{
-            .date = self.date.toFixed(),
-            .time = self.time,
-        };
-    }
-};
+test "date time" {
+    const dt1 = try DateTime.init(
+        try Date.initNums(2022, 2, 15),
+        try time.Segments.init(3, 23, 43, 0),
+    );
+
+    const dt2 = try DateTime.init(
+        try Date.initNums(-432, 2, 15),
+        try time.Segments.init(3, 23, 43, 0),
+    );
+
+    try testing.expectEqual(1, dt1.compare(dt2));
+    try testing.expectEqual(-1, dt2.compare(dt1));
+    try testing.expectEqual(0, dt1.compare(dt1));
+}

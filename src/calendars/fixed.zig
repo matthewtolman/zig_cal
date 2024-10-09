@@ -30,8 +30,8 @@ const types = @import("../utils.zig").types;
 // number.
 //
 // If you really want a 64-bit int for the FixedDate, see my C++ versions
-//      non-constexper version: https://gitlab.com/mtolman/calendars
-//      constexpr version: https://gitlab.com/mtolman/calendar-constexpr
+//      C and C++ APIs: https://gitlab.com/mtolman/calendars
+//      C++ constexpr: https://gitlab.com/mtolman/calendar-constexpr
 pub const Date = struct {
     day: i32,
 };
@@ -43,8 +43,8 @@ pub const DateTime = struct {
     time: time.Segments,
 
     /// Checks if we're valid
-    pub fn valid(self: DateTime) bool {
-        return self.time.valid();
+    pub fn validate(self: DateTime) !void {
+        try self.time.validate();
     }
 
     /// Converts to a moment - avoid if possible

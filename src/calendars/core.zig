@@ -19,9 +19,9 @@ pub const AstronomicalYear = enum(i32) { _ };
 pub const AnnoDominiYear = enum(i32) { _ };
 
 /// Converts astronomical (-1, 0, 1) years to the Anno Domini (-1, 1) years
-pub fn astroToAD(year: AstronomicalYear) AnnoDominiYear {
+pub fn astroToAD(year: AstronomicalYear) !AnnoDominiYear {
+    try validateAstroYear(year);
     const y = @intFromEnum(year);
-    assert(y > m.minInt(i32) + 1);
     if (y > 0) {
         return @enumFromInt(y);
     }
@@ -29,7 +29,7 @@ pub fn astroToAD(year: AstronomicalYear) AnnoDominiYear {
 }
 
 /// Converts astronomical (-1, 0, 1) years to the Anno Domini (-1, 1) years
-pub fn adToAstro(year: AnnoDominiYear) AstronomicalYear {
+pub fn adToAstro(year: AnnoDominiYear) !AstronomicalYear {
     const y = @intFromEnum(year);
 
     // We should never see year 0 from AnnoDomini
@@ -39,6 +39,36 @@ pub fn adToAstro(year: AnnoDominiYear) AstronomicalYear {
         return @enumFromInt(y);
     }
     return @enumFromInt(y + 1);
+}
+
+pub const ValidationError = error{
+    InvalidHour,
+    InvalidMinute,
+    InvalidSecond,
+    InvalidNano,
+    InvalidYear,
+    InvalidSeason,
+    InvalidMonth,
+    InvalidWeek,
+    InvalidDay,
+    InvalidFraction,
+    InvalidOther,
+};
+
+/// Validates Anno Domini years
+pub fn validateAdYear(year: AnnoDominiYear) !void {
+    const y = @intFromEnum(year);
+    if (y == 0) {
+        return ValidationError.InvalidYear;
+    }
+}
+
+/// Validates astronomical years
+pub fn validateAstroYear(year: AstronomicalYear) !void {
+    const y = @intFromEnum(year);
+    if (y == m.minInt(i32)) {
+        return ValidationError.InvalidYear;
+    }
 }
 
 test "conversions" {

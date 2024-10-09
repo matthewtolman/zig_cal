@@ -5,8 +5,8 @@ pub const utils = @import("utils.zig");
 // the code in order to get the test cases to actually run with zig build test
 
 test "calendars" {
-    _ = calendars.gregorian.dateFromFixed(calendars.fixed.Date{ .day = 12 });
-    _ = calendars.time.NanoSeconds{ .nano = 0 };
+    _ = calendars.gregorian.Date.fromFixed(calendars.fixed.Date{ .day = 12 });
+    _ = try calendars.time.NanoSeconds.init(0);
 }
 
 test "utils" {
