@@ -20,7 +20,17 @@ const assert = @import("std").debug.assert;
 pub fn assertValidMathRuntimeType(comptime Out: type) void {
     // Only these types are accepted as valid output types in this module
     comptime assert(switch (Out) {
-        i8, i16, i32, i64, u8, u16, u32, u64, f32, f64 => true,
+        i8,
+        i16,
+        i32,
+        i64,
+        u8,
+        u16,
+        u32,
+        u64,
+        f32,
+        f64,
+        => true,
         else => false,
     });
 }
@@ -81,13 +91,38 @@ pub fn toTypeMath(comptime Out: type, x: anytype) Out {
 
     // not using @truncate to get additional asserts about overflows
     return switch (@TypeOf(x)) {
-        comptime_int, i8, i16, i32, i64, u8, u16, u32, u64 => switch (Out) {
-            i8, i16, i32, i64, u8, u16, u32, u64 => @intCast(x),
+        comptime_int,
+        i8,
+        i16,
+        i32,
+        i64,
+        u8,
+        u16,
+        u32,
+        u64,
+        => switch (Out) {
+            i8,
+            i16,
+            i32,
+            i64,
+            u8,
+            u16,
+            u32,
+            u64,
+            => @intCast(x),
             f32, f64 => @floatFromInt(x),
             else => unreachable,
         },
         comptime_float, f32, f64 => switch (Out) {
-            i8, i16, i32, i64, u8, u16, u32, u64 => @intFromFloat(x),
+            i8,
+            i16,
+            i32,
+            i64,
+            u8,
+            u16,
+            u32,
+            u64,
+            => @intFromFloat(x),
             f32, f64 => @floatCast(x),
             else => unreachable,
         },
