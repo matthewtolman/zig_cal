@@ -1,3 +1,8 @@
+const time = @import("./time.zig");
+const m = @import("std").math;
+const assert = @import("std").debug.assert;
+const types = @import("../utils.zig").types;
+
 // A 32-bit int gives us 11 million years.
 // A 64-bit integer can represent way more than 11 million years.
 //
@@ -27,4 +32,60 @@
 // If you really want a 64-bit int for the FixedDate, see my C++ versions
 //      non-constexper version: https://gitlab.com/mtolman/calendars
 //      constexpr version: https://gitlab.com/mtolman/calendar-constexpr
-pub const Date = struct { dayCount: i32 };
+pub const Date = struct {
+    day: i32,
+};
+
+/// Represents a fixed date plus time
+/// Prefer this over Moment whenever possible
+pub const DateTime = struct {
+    date: Date,
+    time: time.Segments,
+
+    /// Checks if we're valid
+    pub fn valid(self: DateTime) bool {
+        return self.time.valid();
+    }
+
+    /// Converts to a moment - avoid if possible
+    pub fn toMoment(self: DateTime) Moment {
+        assert(self.valid());
+        const days = types.toTypeMath(f64, self.date.day);
+        const t = self.time.toDayFraction();
+        const res = Moment{ .dayAndTime = days + t.frac };
+        assert(res.valid());
+        return res;
+    }
+};
+
+/// An extremely inprecise way of representing date and time
+/// For 90% of use cases it works just fine because anything smaller than
+/// seconds is generally not needed
+/// But as time progresses, this just gets worse and worse.
+/// That said, it does get worse slowly enough for us to build another Y2K.
+/// And probably let a few generations retire before the Y2K happens.
+///
+/// I still don't like it. Used fixed.DateTime whenever possible instead.
+pub const Moment = struct {
+    dayAndTime: f64,
+
+    /// Checks if we're valid
+    pub fn valid(self: Moment) bool {
+        return m.isFinite(self);
+    }
+
+    /// Converts to a fixed DateTime
+    pub fn toFixed(self: Moment) DateTime {
+        assert(self.valid());
+
+        const days = m.floor(self.dayAndTime);
+        const t = self.dayAndTime - days;
+
+        const daysInt = types.toTypeMath(i32, days);
+
+        return DateTime{
+            .date = Date{ .days = daysInt },
+            .time = (time.DayFraction{ .frac = t }).toSegments(),
+        };
+    }
+};

@@ -40,3 +40,21 @@ pub fn adToAstro(year: AnnoDominiYear) AstronomicalYear {
     }
     return @enumFromInt(y + 1);
 }
+
+test "conversions" {
+    const testCases = [_]struct {
+        ad: AnnoDominiYear,
+        astro: AstronomicalYear,
+    }{
+        .{ .ad = @enumFromInt(-1), .astro = @enumFromInt(0) },
+        .{ .ad = @enumFromInt(1), .astro = @enumFromInt(1) },
+        .{ .ad = @enumFromInt(-2), .astro = @enumFromInt(-1) },
+        .{ .ad = @enumFromInt(2020), .astro = @enumFromInt(2020) },
+        .{ .ad = @enumFromInt(-2020), .astro = @enumFromInt(-2019) },
+    };
+
+    for (testCases) |testCase| {
+        try testing.expectEqual(testCase.ad, astroToAD(testCase.astro));
+        try testing.expectEqual(testCase.astro, adToAstro(testCase.ad));
+    }
+}

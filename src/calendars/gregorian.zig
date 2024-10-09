@@ -7,7 +7,7 @@ const assert = @import("std").debug.assert;
 const m = @import("std").math;
 const fmt = @import("std").fmt;
 const mem = @import("std").mem;
-const FixedDate = @import("./fixed.zig").Date;
+const fixed = @import("./fixed.zig");
 const AstronomicalYear = @import("./core.zig").AstronomicalYear;
 const astroToAD = @import("./core.zig").astroToAD;
 
@@ -28,9 +28,9 @@ pub const Month = enum(u8) {
 };
 
 /// Gets the Gregorian Year from a fixed date
-fn yearFromFixed(fixed: FixedDate) AstronomicalYear {
+fn yearFromFixed(fixedDate: fixed.Date) AstronomicalYear {
     // Get our day without leap years
-    const d0 = fixed.dayCount - epochs.gregorian;
+    const d0 = fixedDate.day - epochs.gregorian;
 
     const daysPer400Years = 146097;
     const n400 = @divFloor(d0, daysPer400Years);
@@ -95,19 +95,19 @@ fn daysInMonth(month: Month, year: AstronomicalYear) u8 {
 /// Gets a gregorian date from a fixed date
 /// Used for conversions between date systems
 /// Can also be used during long day-based math operations
-pub fn fromFixed(fixed: FixedDate) Date {
-    const year = yearFromFixed(fixed);
+pub fn dateFromFixed(fixedDate: fixed.Date) Date {
+    const year = yearFromFixed(fixedDate);
     const yStart = yearStart(year);
     const yearStartFixed = yStart.toFixed();
 
-    assert(yearStartFixed.dayCount <= fixed.dayCount);
+    assert(yearStartFixed.day <= fixedDate.day);
 
-    const priorDays = fixed.dayCount - yearStartFixed.dayCount;
+    const priorDays = fixedDate.day - yearStartFixed.day;
 
     // Used for leap year adjustments
     const marchFirst = Date{ .year = year, .month = .March, .day = 1 };
     const marchFirstFixed = marchFirst.toFixed();
-    const correction: i32 = switch (fixed.dayCount < marchFirstFixed.dayCount) {
+    const correction: i32 = switch (fixedDate.day < marchFirstFixed.day) {
         true => 0,
         false => if (isLeapYear(year)) 1 else 2,
     };
@@ -122,13 +122,23 @@ pub fn fromFixed(fixed: FixedDate) Date {
 
     const firstOfMonth = Date{ .year = year, .month = month, .day = 1 };
     const firstOfMonthFixed = firstOfMonth.toFixed();
-    assert(firstOfMonthFixed.dayCount <= fixed.dayCount);
+    assert(firstOfMonthFixed.day <= fixedDate.day);
 
-    const dayRaw = fixed.dayCount - firstOfMonthFixed.dayCount + 1;
+    const dayRaw = fixedDate.day - firstOfMonthFixed.day + 1;
     const day = types.toTypeMath(u8, dayRaw);
     assert(day <= daysInMonth(month, year));
 
     return Date{ .year = year, .month = month, .day = day };
+}
+
+/// Gets a gregorian date from a fixed date
+/// Used for conversions between date systems
+/// Can also be used during long day-based math operations
+pub fn dateTimeFromFixed(fixedDate: fixed.DateTime) DateTime {
+    return DateTime{
+        .date = dateFromFixed(fixedDate),
+        .time = fixedDate.time,
+    };
 }
 
 /// Represents a date on the Gregorian Calendar system.
@@ -156,7 +166,7 @@ pub const Date = struct {
     /// Converts date to a Fixed date
     /// Used for calendar conversions
     /// Also used for starting long day-based math sequences
-    pub fn toFixed(self: Date) FixedDate {
+    pub fn toFixed(self: Date) fixed.Date {
         const y: i32 = @intFromEnum(self.year);
         const month: i32 = @intFromEnum(self.month);
         const prevYear: i32 = y - 1;
@@ -195,7 +205,7 @@ pub const Date = struct {
         const daysPassedInMonth = self.day;
         sum += daysPassedInMonth;
 
-        return FixedDate{ .dayCount = sum };
+        return fixed.Date{ .day = sum };
     }
 
     /// Checks whether the gregorian date is a leap year or not
@@ -252,8 +262,8 @@ pub const Date = struct {
 
     /// The difference between this date and another date in days
     pub fn dayDifference(self: Date, other: Date) i32 {
-        const left = @as(i64, self.toFixed().dayCount);
-        const right = @as(i64, other.toFixed().dayCount);
+        const left = @as(i64, self.toFixed().day);
+        const right = @as(i64, other.toFixed().day);
         const res = left - right;
         assert(res >= m.minInt(i32));
         assert(res <= m.maxInt(i32));
@@ -336,10 +346,10 @@ test "gregorian conversions" {
 
         // Test convertintg to fixed
         const actualFixed = e.toFixed();
-        try testing.expectEqual(fixedDate.dayCount, actualFixed.dayCount);
+        try testing.expectEqual(fixedDate.day, actualFixed.day);
 
         // Test converting from fixed
-        const actualGreg = fromFixed(fixedDate);
+        const actualGreg = dateFromFixed(fixedDate);
         try testing.expect(0 == actualGreg.compare(e));
     }
 }
@@ -431,4 +441,11 @@ test "gregorian leap year" {
 pub const DateTime = struct {
     date: Date,
     time: time.Segments,
+
+    pub fn toFixed(self: DateTime) fixed.DateTime {
+        return fixed.DateTime{
+            .date = self.date.toFixed(),
+            .time = self.time,
+        };
+    }
 };

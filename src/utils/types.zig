@@ -1,4 +1,5 @@
 const assert = @import("std").debug.assert;
+const testing = @import("std").testing;
 
 // Just a lot of type-related helper functions
 // I have to deal with numbers across so many different types and then do
@@ -69,12 +70,28 @@ pub fn assertHasValidMathRuntimeType(x: anytype) void {
 /// (I.E. comptime_int => i64, comptime_flaot => f64)
 /// For now, math types only include traditional bit sizes
 pub fn mathRuntimeTypeOf(x: anytype) type {
+    assertHasValidMathType(x);
     const t: type = comptime @TypeOf(x);
     return switch (t) {
         comptime_int => i64,
         comptime_float => f64,
         else => t,
     };
+}
+
+test "mathRuntimeTypeOf" {
+    try testing.expect(i64 == mathRuntimeTypeOf(4));
+    try testing.expect(f64 == mathRuntimeTypeOf(4.0));
+    try testing.expect(i8 == mathRuntimeTypeOf(@as(i8, 3)));
+    try testing.expect(i16 == mathRuntimeTypeOf(@as(i16, 3)));
+    try testing.expect(i32 == mathRuntimeTypeOf(@as(i32, 3)));
+    try testing.expect(i64 == mathRuntimeTypeOf(@as(i64, 3)));
+    try testing.expect(u8 == mathRuntimeTypeOf(@as(u8, 3)));
+    try testing.expect(u16 == mathRuntimeTypeOf(@as(u16, 3)));
+    try testing.expect(u32 == mathRuntimeTypeOf(@as(u32, 3)));
+    try testing.expect(u64 == mathRuntimeTypeOf(@as(u64, 3)));
+    try testing.expect(f64 == mathRuntimeTypeOf(@as(f64, 3)));
+    try testing.expect(f32 == mathRuntimeTypeOf(@as(f32, 3)));
 }
 
 /// Converts one "math" value to a specific "math" type
@@ -128,4 +145,21 @@ pub fn toTypeMath(comptime Out: type, x: anytype) Out {
         },
         else => unreachable,
     };
+}
+
+test "toTypeMath" {
+    try testing.expectEqual(@as(i64, 4), toTypeMath(i64, 4));
+    try testing.expectEqual(@as(f64, 4), toTypeMath(f64, 4));
+    try testing.expectEqual(@as(i64, 4), toTypeMath(i64, 4.0));
+    try testing.expectEqual(@as(f64, 4), toTypeMath(f64, 4.0));
+    try testing.expectEqual(@as(i8, 3), toTypeMath(i8, @as(i16, 3)));
+    try testing.expectEqual(@as(i16, 3), toTypeMath(i16, @as(i32, 3)));
+    try testing.expectEqual(@as(i32, 3), toTypeMath(i32, @as(i64, 3)));
+    try testing.expectEqual(@as(i64, 3), toTypeMath(i64, @as(i64, 3)));
+    try testing.expectEqual(@as(i64, 3), toTypeMath(i64, @as(u64, 3)));
+    try testing.expectEqual(@as(i64, 3), toTypeMath(i64, @as(i8, 3)));
+    try testing.expectEqual(@as(u8, 3), toTypeMath(u8, @as(i8, 3)));
+    try testing.expectEqual(@as(u16, 3), toTypeMath(u16, @as(i16, 3)));
+    try testing.expectEqual(@as(u32, 3), toTypeMath(u32, @as(i32, 3)));
+    try testing.expectEqual(@as(u64, 3), toTypeMath(u64, @as(i64, 3)));
 }
