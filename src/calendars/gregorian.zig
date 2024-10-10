@@ -443,8 +443,11 @@ test "gregorian conversions" {
             .date = fixedDate,
             .time = timeSegment,
         };
-        const actualGregTime = try DateTime.fromFixed(fixedDateTime);
+        const actualGregTime = DateTime.fromFixed(fixedDateTime);
         try testing.expectEqual(0, actualGregTime.date.compare(e));
+
+        const actualFixedTime = actualGregTime.toFixed();
+        try testing.expectEqualDeep(fixedDateTime, actualFixedTime);
     }
 }
 
@@ -532,7 +535,7 @@ test "gregorian leap year" {
 }
 
 /// Represents a gregorian date and time combination
-pub const DateTime = CalendarDateTime(Date, time.Segments);
+pub const DateTime = CalendarDateTime(Date);
 
 test "date time" {
     const dt1 = try DateTime.init(

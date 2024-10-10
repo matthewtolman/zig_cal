@@ -35,7 +35,8 @@ const mem = @import("std").mem;
 /// we can't convert to a fixed date, and if we can't convert to a fixed date
 /// then we can't convert to other calendars. Especially once leap years are
 /// involved.
-pub fn CalendarDateTime(comptime Cal: type, comptime Time: type) type {
+pub fn CalendarDateTime(comptime Cal: type) type {
+    const Time = t.Segments;
     comptime assert(@hasDecl(Cal, "toFixed"));
     switch (@typeInfo(@TypeOf(Cal.toFixed))) {
         .Fn => |f| {
@@ -78,65 +79,43 @@ pub fn CalendarDateTime(comptime Cal: type, comptime Time: type) type {
         else => unreachable,
     });
 
-    comptime assert(Time == t.Segments or Time == t.NanoSeconds or Time == t.DayFraction);
     return struct {
         date: Cal,
         time: Time,
 
         /// Initializes a date time. Will error if inputs are not valid
-        pub fn init(date: Cal, time: Time) !CalendarDateTime(Cal, Time) {
+        pub fn init(date: Cal, time: Time) !CalendarDateTime(Cal) {
             try date.validate();
             try time.validate();
             return .{ .date = date, .time = time };
         }
 
         /// Validates a date time
-        pub fn validate(self: CalendarDateTime(Cal, Time)) !void {
+        pub fn validate(self: CalendarDateTime(Cal)) !void {
             try self.date.validate();
             try self.time.validate();
         }
 
         /// Creates a date time from a fixed date time
-        pub fn fromFixed(fdt: fixed.DateTime) !CalendarDateTime(Cal, Time) {
-            if (comptime Time == t.Segments) {
-                try fdt.time.validate();
-                return .{
-                    .date = Cal.fromFixed(fdt.date),
-                    .time = fdt.time,
-                };
-            } else if (comptime Time == t.NanoSeconds) {
-                return .{
-                    .date = Cal.fromFixed(fdt.date),
-                    .time = try fdt.time.toNanoSeconds(),
-                };
-            } else {
-                return .{
-                    .date = Cal.fromFixed(fdt.date),
-                    .time = try fdt.time.toDayFraction(),
-                };
-            }
+        pub fn fromFixed(fdt: fixed.DateTime) CalendarDateTime(Cal) {
+            return .{
+                .date = Cal.fromFixed(fdt.date),
+                .time = fdt.time,
+            };
         }
 
         /// Converts a date time to a fixed date time
-        pub fn toFixed(self: CalendarDateTime(Cal, Time)) !fixed.DateTime {
-            if (comptime Time == t.Segments) {
-                try self.time.validate();
-                return fixed.DateTime{
-                    .date = self.date.toFixed(),
-                    .time = self.time,
-                };
-            } else {
-                return fixed.DateTime{
-                    .date = self.date.toFixed(),
-                    .time = try self.time.toSegments(),
-                };
-            }
+        pub fn toFixed(self: CalendarDateTime(Cal)) fixed.DateTime {
+            return fixed.DateTime{
+                .date = self.date.toFixed(),
+                .time = self.time,
+            };
         }
 
         /// Compares date times
         pub fn compare(
-            self: CalendarDateTime(Cal, Time),
-            other: CalendarDateTime(Cal, Time),
+            self: CalendarDateTime(Cal),
+            other: CalendarDateTime(Cal),
         ) i32 {
             const dateCompare = self.date.compare(other.date);
             if (dateCompare != 0) {
