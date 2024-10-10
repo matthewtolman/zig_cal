@@ -1,6 +1,8 @@
 const fixed = @import("../calendars/fixed.zig");
 const t = @import("../calendars.zig").time;
 const assert = @import("std").debug.assert;
+const fmt = @import("std").fmt;
+const mem = @import("std").mem;
 
 /// Creates a DateTime wrapper for any calendar struct which has the following:
 ///  - fn validate(self: Date) !void
@@ -23,6 +25,9 @@ const assert = @import("std").debug.assert;
 ///     - Converts date to a fixed date
 ///     - generates `fn toFixed(CalendarDateTime(Date)) !fixedDateTime: fixed.DateTime`
 ///
+/// If you wish to have a format function on the DateTime struct, just provide
+/// one one the calendar struct.
+///
 /// The reason toFixed is optional is that some calendaring systems don't track
 /// absolute dates. Instead, they only track the relative dates in a cycle.
 ///
@@ -31,25 +36,41 @@ const assert = @import("std").debug.assert;
 /// then we can't convert to other calendars. Especially once leap years are
 /// involved.
 pub fn CalendarDateTime(comptime Cal: type, comptime Time: type) type {
-    const hasToFixed = if (comptime @hasDecl(Cal, "toFixed"))
-        switch (@typeInfo(@TypeOf(Cal.toFixed))) {
-            .Fn => |f| f.params.len == 1 and f.params[0].type == Cal and f.return_type == fixed.Date,
-            else => false,
-        }
+    comptime assert(@hasDecl(Cal, "toFixed"));
+    switch (@typeInfo(@TypeOf(Cal.toFixed))) {
+        .Fn => |f| {
+            comptime assert(f.params.len == 1);
+            comptime assert(f.params[0].type == Cal);
+            comptime assert(f.return_type == fixed.Date);
+        },
+        else => unreachable,
+    }
+
+    const hasFormat = if (comptime @hasDecl(Cal, "format"))
+        true
     else
         false;
 
     comptime assert(@hasDecl(Cal, "fromFixed"));
-    comptime assert(switch (@typeInfo(@TypeOf(Cal.fromFixed))) {
-        .Fn => |f| f.params.len == 1 and f.params[0].type == fixed.Date and f.return_type == Cal,
+    switch (@typeInfo(@TypeOf(Cal.fromFixed))) {
+        .Fn => |f| {
+            comptime assert(f.params.len == 1);
+            comptime assert(f.params[0].type == fixed.Date);
+            comptime assert(f.return_type == Cal);
+        },
         else => unreachable,
-    });
+    }
 
     comptime assert(@hasDecl(Cal, "compare"));
-    comptime assert(switch (@typeInfo(@TypeOf(Cal.compare))) {
-        .Fn => |f| f.params.len == 2 and f.return_type == i32 and f.params[0].type == Cal and f.params[1].type == Cal,
+    switch (@typeInfo(@TypeOf(Cal.compare))) {
+        .Fn => |f| {
+            comptime assert(f.params.len == 2);
+            comptime assert(f.return_type == i32);
+            comptime assert(f.params[0].type == Cal);
+            comptime assert(f.params[1].type == Cal);
+        },
         else => unreachable,
-    });
+    }
 
     comptime assert(@hasDecl(Cal, "validate"));
     comptime assert(switch (@typeInfo(@TypeOf(Cal.validate))) {
@@ -58,87 +79,95 @@ pub fn CalendarDateTime(comptime Cal: type, comptime Time: type) type {
     });
 
     comptime assert(Time == t.Segments or Time == t.NanoSeconds or Time == t.DayFraction);
+    return struct {
+        date: Cal,
+        time: Time,
 
-    if (hasToFixed) {
-        return struct {
-            date: Cal,
-            time: Time,
+        /// Initializes a date time. Will error if inputs are not valid
+        pub fn init(date: Cal, time: Time) !CalendarDateTime(Cal, Time) {
+            try date.validate();
+            try time.validate();
+            return .{ .date = date, .time = time };
+        }
 
-            pub fn init(date: Cal, time: Time) !CalendarDateTime(Cal, Time) {
-                try date.validate();
-                try time.validate();
-                return .{ .date = date, .time = time };
-            }
+        /// Validates a date time
+        pub fn validate(self: CalendarDateTime(Cal, Time)) !void {
+            try self.date.validate();
+            try self.time.validate();
+        }
 
-            pub fn validate(self: CalendarDateTime(Cal, Time)) !void {
-                try self.date.validate();
-                try self.time.validate();
-            }
-
-            pub fn toFixed(self: CalendarDateTime(Cal, Time)) !fixed.DateTime {
-                if (comptime Time == t.Segments) {
-                    try self.time.validate();
-                    return fixed.DateTime{ .date = self.date.toFixed(), .time = self.time };
-                } else {
-                    return fixed.DateTime{ .date = self.date.toFixed(), .time = try self.time.toSegments() };
-                }
-            }
-
-            pub fn fromFixed(fdt: fixed.DateTime) !CalendarDateTime(Cal, Time) {
-                if (comptime Time == t.Segments) {
-                    try fdt.time.validate();
-                    return .{ .date = Cal.fromFixed(fdt.date), .time = fdt.time };
-                } else if (comptime Time == t.NanoSeconds) {
-                    return .{ .date = Cal.fromFixed(fdt.date), .time = try fdt.time.toNanoSeconds() };
-                } else {
-                    return .{ .date = Cal.fromFixed(fdt.date), .time = try fdt.time.toDayFraction() };
-                }
-            }
-
-            pub fn compare(
-                self: CalendarDateTime(Cal, Time),
-                other: CalendarDateTime(Cal, Time),
-            ) i32 {
-                const dateCompare = self.date.compare(other.date);
-                if (dateCompare != 0) {
-                    return dateCompare;
-                }
-                return self.time.compare(other.time);
-            }
-        };
-    } else {
-        return struct {
-            date: Cal,
-            time: Time,
-
-            pub fn init(date: Cal, time: Time) !CalendarDateTime(Cal, Time) {
-                try date.validate();
-                try time.validate();
-                return .{ .date = date, .time = time };
-            }
-
-            pub fn validate(self: CalendarDateTime(Cal, Time)) !void {
-                try self.date.validate();
-                try self.time.validate();
-            }
-
-            pub fn fromFixed(fdt: fixed.DateTime) CalendarDateTime(Cal, Time) {
+        /// Creates a date time from a fixed date time
+        pub fn fromFixed(fdt: fixed.DateTime) !CalendarDateTime(Cal, Time) {
+            if (comptime Time == t.Segments) {
+                try fdt.time.validate();
                 return .{
                     .date = Cal.fromFixed(fdt.date),
                     .time = fdt.time,
                 };
+            } else if (comptime Time == t.NanoSeconds) {
+                return .{
+                    .date = Cal.fromFixed(fdt.date),
+                    .time = try fdt.time.toNanoSeconds(),
+                };
+            } else {
+                return .{
+                    .date = Cal.fromFixed(fdt.date),
+                    .time = try fdt.time.toDayFraction(),
+                };
+            }
+        }
+
+        /// Converts a date time to a fixed date time
+        pub fn toFixed(self: CalendarDateTime(Cal, Time)) !fixed.DateTime {
+            if (comptime Time == t.Segments) {
+                try self.time.validate();
+                return fixed.DateTime{
+                    .date = self.date.toFixed(),
+                    .time = self.time,
+                };
+            } else {
+                return fixed.DateTime{
+                    .date = self.date.toFixed(),
+                    .time = try self.time.toSegments(),
+                };
+            }
+        }
+
+        /// Compares date times
+        pub fn compare(
+            self: CalendarDateTime(Cal, Time),
+            other: CalendarDateTime(Cal, Time),
+        ) i32 {
+            const dateCompare = self.date.compare(other.date);
+            if (dateCompare != 0) {
+                return dateCompare;
+            }
+            return self.time.compare(other.time);
+        }
+
+        /// Formats date times
+        pub fn format(
+            self: Cal,
+            comptime f: []const u8,
+            options: fmt.FormatOptions,
+            writer: anytype,
+        ) !void {
+            self.validate() catch {
+                try writer.print("<INVALID_DATE_TIME>::", .{});
+            };
+
+            if (comptime hasFormat) {
+                try self.date.format(f, options, writer);
+            } else {
+                try writer.print("<DATE>");
             }
 
-            pub fn compare(
-                self: CalendarDateTime(Cal, Time),
-                other: CalendarDateTime(Cal, Time),
-            ) i32 {
-                const dateCompare = self.date.compare(other.date);
-                if (dateCompare != 0) {
-                    return dateCompare;
-                }
-                return self.time.compare(other.time);
+            if (mem.eql(u8, f, "s") or mem.eql(u8, f, "u")) {
+                try writer.print(" ", .{});
+            } else {
+                try writer.print("T", .{});
             }
-        };
-    }
+            try self.time.format(f, options, writer);
+        }
+    };
 }

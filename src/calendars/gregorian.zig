@@ -256,9 +256,10 @@ pub const Date = struct {
     }
 
     /// Formats Gregorian Calendar into string form
-    /// Format of "s" will do human readable date string with Anno Domini year
+    /// Format of "s" or "u" will do human readable date string with Anno
+    /// Domini year.
     ///     (e.g. March 23, 345 B.C.    April 3, 2023 A.D.)
-    /// Default format (for any other format type) will do -?YYYY-MM-DD with
+    /// Default format (for any other format type) will do YYYY-MM-DD with
     /// astronomical year.
     /// If year is negative, will prefix date with a "-", otherwise will not
     ///     (e.g. -0344-03-23       2023-04-03)
@@ -274,7 +275,7 @@ pub const Date = struct {
             try writer.print("INVALID: ", .{});
         };
 
-        if (mem.eql(u8, f, "s")) {
+        if (mem.eql(u8, f, "s") or mem.eql(u8, f, "u")) {
             const y = @intFromEnum(try astroToAD(self.year));
             const month = @tagName(self.month);
             const adOrBc = if (y > 0) "A.D." else "B.C.";

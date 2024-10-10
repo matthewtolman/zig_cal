@@ -3,9 +3,13 @@ const m = @import("std").math;
 const math = @import("../utils.zig").math;
 const assert = @import("std").debug.assert;
 const ValidationError = @import("./core.zig").ValidationError;
+const fmt = @import("std").fmt;
+const testing = @import("std").testing;
+const mem = @import("std").mem;
 
-//                 ns/s s/m   m/h  h/d
-const nanoPerDay = 1e9 * 60 * 60 * 24;
+const nanoPerSec = @as(u64, @intFromFloat(1e9));
+//                 ns/s         s/m  m/h  h/d
+const nanoPerDay = nanoPerSec * 60 * 60 * 24;
 
 /// Represents time in Hour, Minut, Second, and Nanosecond fragments
 /// Using u32 for nano since I only need to represent 1 billion nanoseconds,
@@ -59,7 +63,7 @@ pub const Segments = struct {
             return ValidationError.InvalidSecond;
         }
 
-        if (self.nano >= 1e9) {
+        if (self.nano >= nanoPerSec) {
             return ValidationError.InvalidNano;
         }
     }
@@ -70,19 +74,19 @@ pub const Segments = struct {
         const hours = toTypeMath(u64, self.hour);
         const minutes = hours * 60 + toTypeMath(u64, self.minute);
         const seconds = minutes * 60 + toTypeMath(u64, self.second);
-        const nano = seconds * 1e9 + toTypeMath(u64, self.nano);
+        const nano = seconds * nanoPerSec + toTypeMath(u64, self.nano);
         const res = NanoSeconds{ .nano = nano };
 
-        assert(res.validate() != ValidationError);
+        res.validate() catch unreachable;
         return res;
     }
 
     /// Converts time segments to day fraction
     pub fn toDayFraction(self: Segments) !DayFraction {
         const nano = try self.toNanoSeconds();
-        assert(nano.validate() != ValidationError);
-        const res = nano.toDayFraction();
-        assert(res.validate() != ValidationError);
+        nano.validate() catch unreachable;
+        const res = try nano.toDayFraction();
+        res.validate() catch unreachable;
         return res;
     }
 
@@ -102,6 +106,39 @@ pub const Segments = struct {
 
         assert(res == 1 or res == -1 or res == 0);
         return res;
+    }
+
+    pub fn format(
+        self: Segments,
+        comptime f: []const u8,
+        options: fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = f;
+        const precision = options.precision orelse 9;
+        if (precision <= 1) {
+            try writer.print("{d}:{d}:{d}.{d}", .{
+                self.hour,
+                self.minute,
+                self.second,
+                self.nano,
+            });
+        } else if (precision == 2) {
+            try writer.print("{d:0>2}:{d:0>2}:{d:0>2}.{d:0>2}", .{
+                self.hour,
+                self.minute,
+                self.second,
+                self.nano,
+            });
+        } else {
+            try writer.print("{d:0>2}:{d:0>2}:{d:0>2}.", .{
+                self.hour,
+                self.minute,
+                self.second,
+            });
+
+            try fmt.formatIntValue(self.nano, "d", options, writer);
+        }
     }
 };
 
@@ -144,16 +181,16 @@ pub const DayFraction = struct {
         const nanoSeconds = toTypeMath(u64, m.floor(self.frac * nanoPerDay));
         const res = NanoSeconds{ .nano = nanoSeconds };
 
-        assert(res.validate() != ValidationError);
+        res.validate() catch unreachable;
         return res;
     }
 
     /// Converts day fraction to segments
     pub fn toSegments(self: DayFraction) !Segments {
         const nano = try self.toNanoSeconds();
-        assert(nano.validate() != ValidationError);
-        const res = nano.toSegments();
-        assert(res.validate() != ValidationError);
+        nano.validate() catch unreachable;
+        const res = try nano.toSegments();
+        res.validate() catch unreachable;
         return res;
     }
 
@@ -169,6 +206,18 @@ pub const DayFraction = struct {
 
         assert(res == 0 or res == -1 or res == 1);
         return res;
+    }
+
+    pub fn format(
+        self: DayFraction,
+        comptime f: []const u8,
+        options: fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = f;
+        _ = options;
+
+        try writer.print("{d:.3}%day", .{self.frac * 100.0});
     }
 };
 
@@ -199,7 +248,7 @@ pub const NanoSeconds = struct {
         // yay precision loss!
         const nano = @as(f64, @floatFromInt(self.nano));
         const res = DayFraction{ .frac = nano / nanoPerDay };
-        assert(res.validate() != ValidationError);
+        res.validate() catch unreachable;
         return res;
     }
 
@@ -209,9 +258,9 @@ pub const NanoSeconds = struct {
 
         var val: u64 = self.nano;
 
-        const nano = math.mod(u32, val, 1e9);
-        assert(nano < 1e9);
-        val = val / 1e9;
+        const nano = math.mod(u32, val, nanoPerSec);
+        assert(nano < nanoPerSec);
+        val = val / nanoPerSec;
 
         const seconds = math.mod(u8, val, 60);
         assert(seconds < 60);
@@ -229,7 +278,7 @@ pub const NanoSeconds = struct {
             .nano = nano,
         };
 
-        assert(res.validate() != ValidationError);
+        res.validate() catch unreachable;
         return res;
     }
 
@@ -243,4 +292,101 @@ pub const NanoSeconds = struct {
         assert(res == 0 or res == -1 or res == 1);
         return res;
     }
+
+    /// Formats nanoseconds
+    pub fn format(
+        self: NanoSeconds,
+        comptime f: []const u8,
+        options: fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = f;
+        try fmt.formatIntValue(self.nano, "d", options, writer);
+        try writer.print("ns", .{});
+    }
 };
+
+test "time conversions" {
+    // From Segments
+    try testing.expectEqualDeep(try DayFraction.init(
+        0.5,
+    ), (try (try Segments.init(
+        12,
+        0,
+        0,
+        0,
+    )).toDayFraction()));
+
+    try testing.expectEqual(try NanoSeconds.init(
+        nanoPerDay / 2,
+    ), (try (try Segments.init(
+        12,
+        0,
+        0,
+        0,
+    )).toNanoSeconds()));
+
+    // From DayFraction
+    try testing.expectEqualDeep(try Segments.init(
+        12,
+        0,
+        0,
+        0,
+    ), (try (try DayFraction.init(0.5)).toSegments()));
+
+    try testing.expectEqualDeep(try NanoSeconds.init(
+        nanoPerDay / 2,
+    ), (try (try DayFraction.init(0.5)).toNanoSeconds()));
+
+    // From NanoSeconds
+    try testing.expectEqualDeep(try Segments.init(
+        12,
+        0,
+        0,
+        0,
+    ), (try (try NanoSeconds.init(nanoPerDay / 2)).toSegments()));
+
+    try testing.expectEqualDeep(try DayFraction.init(
+        0.5,
+    ), (try (try NanoSeconds.init(nanoPerDay / 2)).toDayFraction()));
+}
+
+test "time formatting" {
+    var list = @import("std").ArrayList(u8).init(testing.allocator);
+    defer list.deinit();
+    const testCases = [_]struct {
+        time: union(enum) {
+            segments: Segments,
+            nano: NanoSeconds,
+            frac: DayFraction,
+        },
+        expected: []const u8,
+    }{
+        .{
+            .time = .{ .segments = try Segments.init(12, 32, 45, 1239238) },
+            .expected = "12:32:45.1239238",
+        },
+        .{
+            .time = .{ .nano = try NanoSeconds.init(1234599) },
+            .expected = "1234599ns",
+        },
+        .{
+            .time = .{ .frac = try DayFraction.init(0.4231) },
+            .expected = "42.310%day",
+        },
+    };
+
+    for (testCases) |testCase| {
+        {
+            defer list.clearRetainingCapacity();
+
+            switch (testCase.time) {
+                .segments => |t| try list.writer().print("{s}", .{t}),
+                .frac => |t| try list.writer().print("{s}", .{t}),
+                .nano => |t| try list.writer().print("{s}", .{t}),
+            }
+
+            try testing.expectEqualStrings(testCase.expected, list.items);
+        }
+    }
+}
