@@ -75,7 +75,7 @@ pub const Moment = struct {
     }
 
     /// Converts to a fixed DateTime
-    pub fn toFixed(self: Moment) DateTime {
+    pub fn toFixedDateTime(self: Moment) DateTime {
         assert(self.valid());
 
         const days = m.floor(self.dayAndTime);

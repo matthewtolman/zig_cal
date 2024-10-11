@@ -41,6 +41,7 @@ pub fn adToAstro(year: AnnoDominiYear) !AstronomicalYear {
     return @enumFromInt(y + 1);
 }
 
+/// Validation error to return when a date is not valid
 pub const ValidationError = error{
     InvalidHour,
     InvalidMinute,
@@ -53,6 +54,17 @@ pub const ValidationError = error{
     InvalidDay,
     InvalidFraction,
     InvalidOther,
+};
+
+/// Represents the number of days in a week
+pub const DayOfWeek = enum(u8) {
+    Sunday = 0,
+    Monday = 1,
+    Tuesday = 2,
+    Wednesday = 3,
+    Thursday = 4,
+    Friday = 5,
+    Saturday = 6,
 };
 
 /// Validates Anno Domini years

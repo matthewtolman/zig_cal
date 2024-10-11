@@ -8,11 +8,14 @@ const m = @import("std").math;
 const fmt = @import("std").fmt;
 const mem = @import("std").mem;
 const fixed = @import("./fixed.zig");
-const AstronomicalYear = @import("./core.zig").AstronomicalYear;
-const validateAstroYear = @import("./core.zig").validateAstroYear;
-const astroToAD = @import("./core.zig").astroToAD;
-const ValidationError = @import("./core.zig").ValidationError;
+const core = @import("./core.zig");
 const CalendarDateTime = @import("./wrappers.zig").CalendarDateTime;
+const CalendarMixin = @import("./wrappers.zig").CalendarMixin;
+
+const AstronomicalYear = core.AstronomicalYear;
+const validateAstroYear = core.validateAstroYear;
+const astroToAD = core.astroToAD;
+const ValidationError = core.ValidationError;
 
 /// Represents the gregorian months
 pub const Month = enum(u8) {
@@ -54,9 +57,10 @@ fn yearFromFixed(fixedDate: fixed.Date) AstronomicalYear {
     const years100 = 100 * n100;
     const years4 = 4 * n4;
     const year1 = n1;
-    const leapAdjustment: i32 = if (n100 == 4 or n1 == 4) 0 else 1;
 
-    const res = years400 + years100 + years4 + year1 + leapAdjustment;
+    const periodAdjustment: i32 = if (n100 != 4 and n1 != 4) 1 else 0;
+
+    const res = years400 + years100 + years4 + year1 + periodAdjustment;
     return @enumFromInt(res);
 }
 
@@ -88,15 +92,6 @@ pub fn isLeapYear(year: AstronomicalYear) bool {
     return leapYear(year);
 }
 
-/// Gets the number of days in a month/year combo
-fn daysInMonth(month: Month, year: AstronomicalYear) u8 {
-    return switch (month) {
-        .January, .March, .May, .July, .August, .October, .December => 31,
-        .April, .June, .September, .November => 30,
-        .February => if (isLeapYear(year)) 29 else 28,
-    };
-}
-
 /// Represents a date on the Gregorian Calendar system.
 /// This calendar uses the Astronomical year counting system which includes 0.
 /// Year 0 correspondes to 1 B.C. on the Anno Domini system of counting.
@@ -126,6 +121,7 @@ pub const Date = struct {
         return res;
     }
 
+    /// Creates a new Gregorian date. Will convert numbers to types
     pub fn initNums(year: i32, month: i32, day: i32) !Date {
         const y: AstronomicalYear = @enumFromInt(year);
         try validateAstroYear(y);
@@ -149,28 +145,26 @@ pub const Date = struct {
 
         try validateAstroYear(self.year);
 
-        const dayMax = daysInMonth(self.month, self.year);
-        if (self.day > dayMax) {
+        const dayMax = self.daysInMonth();
+        if (self.day > dayMax or self.day < 1) {
             return ValidationError.InvalidDay;
         }
     }
 
-    /// Converts a potentially invalid date to a valid date
-    pub fn nearestValid(self: Date) Date {
-        var res = self;
-
-        self.validate() catch {
-            res = Date.fromFixed(self.toFixed());
+    /// Returns the number of days in a month
+    pub fn daysInMonth(self: Date) i8 {
+        return switch (self.month) {
+            .January, .March, .May, .July, .August, .October, .December => 31,
+            .April, .June, .September, .November => 30,
+            .February => if (self.isLeapYear()) 29 else 28,
         };
-
-        return res;
     }
 
     /// Creates a Gregorian date from a fixed date
-    pub fn fromFixed(fixedDate: fixed.Date) Date {
+    pub fn fromFixedDate(fixedDate: fixed.Date) Date {
         const year = yearFromFixed(fixedDate);
         const yStart = yearStart(year);
-        const yearStartFixed = yStart.toFixed();
+        const yearStartFixed = yStart.toFixedDate();
 
         assert(yearStartFixed.day <= fixedDate.day);
 
@@ -178,7 +172,7 @@ pub const Date = struct {
 
         // Used for leap year adjustments
         const marchFirst = Date{ .year = year, .month = .March, .day = 1 };
-        const marchFirstFixed = marchFirst.toFixed();
+        const marchFirstFixed = marchFirst.toFixedDate();
         const correction: i32 = switch (fixedDate.day < marchFirstFixed.day) {
             true => 0,
             false => if (leapYear(year)) 1 else 2,
@@ -193,22 +187,25 @@ pub const Date = struct {
         assert(@intFromEnum(month) <= @intFromEnum(Month.December));
 
         const firstOfMonth = Date{ .year = year, .month = month, .day = 1 };
-        const firstOfMonthFixed = firstOfMonth.toFixed();
+        const firstOfMonthFixed = firstOfMonth.toFixedDate();
         assert(firstOfMonthFixed.day <= fixedDate.day);
 
         const dayRaw = fixedDate.day - firstOfMonthFixed.day + 1;
         const day = types.toTypeMath(u8, dayRaw);
-        assert(day <= daysInMonth(month, year));
+        // A more precise assertion is done in res.isValid()
+        assert(day <= 31);
+        assert(day >= 1);
 
         const res = Date{ .year = year, .month = month, .day = day };
-        res.validate() catch unreachable;
+        // This is safe since we provide our own validate method
+        assert(res.isValid());
         return res;
     }
 
     /// Converts date to a Fixed date
     /// Used for calendar conversions
     /// Also used for starting long day-based math sequences
-    pub fn toFixed(self: Date) fixed.Date {
+    pub fn toFixedDate(self: Date) fixed.Date {
         const y: i32 = @intFromEnum(self.year);
         const month: i32 = @intFromEnum(self.month);
         const prevYear: i32 = y - 1;
@@ -307,13 +304,6 @@ pub const Date = struct {
         }
     }
 
-    /// The difference between this date and another date in days
-    pub fn dayDifference(self: Date, other: Date) i32 {
-        const left = self.toFixed().day;
-        const right = other.toFixed().day;
-        return left - right;
-    }
-
     /// Compares two dates
     pub fn compare(self: Date, other: Date) i32 {
         if (self.year != other.year) {
@@ -358,6 +348,8 @@ pub const Date = struct {
         assert(if (date.isLeapYear()) res <= 365 else res <= 364);
         return res;
     }
+
+    pub usingnamespace CalendarMixin(Date);
 };
 
 test "days in year" {
@@ -432,22 +424,46 @@ test "gregorian conversions" {
         const e = expected[index];
 
         // Test convertintg to fixed
-        const actualFixed = e.toFixed();
+        const actualFixed = e.toFixedDate();
         try testing.expectEqual(fixedDate.day, actualFixed.day);
 
         // Test converting from fixed
-        const actualGreg = Date.fromFixed(fixedDate);
+        const actualGreg = Date.fromFixedDate(fixedDate);
         try testing.expect(0 == actualGreg.compare(e));
 
         const fixedDateTime = fixed.DateTime{
             .date = fixedDate,
             .time = timeSegment,
         };
-        const actualGregTime = DateTime.fromFixed(fixedDateTime);
+        const actualGregTime = DateTime.fromFixedDateTime(fixedDateTime);
         try testing.expectEqual(0, actualGregTime.date.compare(e));
 
-        const actualFixedTime = actualGregTime.toFixed();
+        const actualFixedTime = actualGregTime.toFixedDateTime();
         try testing.expectEqualDeep(fixedDateTime, actualFixedTime);
+    }
+
+    var init = try Date.initNums(2024, 2, 29);
+    try testing.expectEqualDeep(init, Date.fromFixedDate(init.toFixedDate()));
+
+    init = try Date.initNums(2000, 2, 29);
+    try testing.expectEqualDeep(init, Date.fromFixedDate(init.toFixedDate()));
+
+    init = try Date.initNums(1900, 2, 28);
+    try testing.expectEqualDeep(init, Date.fromFixedDate(init.toFixedDate()));
+
+    // This hits a different period adjustment branch in fromFixedDate
+    init = try Date.initNums(32, 12, 31);
+    try testing.expectEqualDeep(init, Date.fromFixedDate(init.toFixedDate()));
+
+    // We're seeding this manually to make sure the tests are't flaky
+    var prng = @import("std").rand.DefaultPrng.init(592941772305693043);
+    const rand = prng.random();
+
+    // Run our calculation a lot to make sure it works
+    for (0..1000) |_| {
+        const start = fixed.Date{ .day = rand.int(i16) };
+        const end = Date.fromFixedDate(start).toFixedDate();
+        try testing.expectEqualDeep(start, end);
     }
 }
 
@@ -551,4 +567,56 @@ test "date time" {
     try testing.expectEqual(1, dt1.compare(dt2));
     try testing.expectEqual(-1, dt2.compare(dt1));
     try testing.expectEqual(0, dt1.compare(dt1));
+}
+
+test "day math" {
+    const dt1 = try Date.initNums(2022, 2, 15);
+
+    try testing.expectEqual(try Date.initNums(2022, 3, 2), dt1.addDays(15));
+    try testing.expectEqual(try Date.initNums(2022, 1, 31), dt1.subDays(15));
+
+    try testing.expectEqual(try Date.initNums(2023, 2, 15), dt1.addDays(365));
+    try testing.expectEqual(try Date.initNums(2024, 2, 15), dt1.addDays(365 * 2));
+    try testing.expectEqual(try Date.initNums(2025, 2, 14), dt1.addDays(365 * 3));
+}
+
+test "dayOfWeek" {
+    const start = try Date.initNums(2024, 10, 11);
+    var dt = start;
+
+    try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
+    dt = start.addDays(1);
+    try testing.expectEqual(core.DayOfWeek.Saturday, dt.dayOfWeek());
+    dt = start.subDays(1);
+    try testing.expectEqual(core.DayOfWeek.Thursday, dt.dayOfWeek());
+
+    dt = start.addDays(2);
+    try testing.expectEqual(core.DayOfWeek.Sunday, dt.dayOfWeek());
+    dt = start.subDays(2);
+    try testing.expectEqual(core.DayOfWeek.Wednesday, dt.dayOfWeek());
+
+    dt = start.addDays(3);
+    try testing.expectEqual(core.DayOfWeek.Monday, dt.dayOfWeek());
+    dt = start.subDays(3);
+    try testing.expectEqual(core.DayOfWeek.Tuesday, dt.dayOfWeek());
+
+    dt = start.addDays(4);
+    try testing.expectEqual(core.DayOfWeek.Tuesday, dt.dayOfWeek());
+    dt = start.subDays(4);
+    try testing.expectEqual(core.DayOfWeek.Monday, dt.dayOfWeek());
+
+    dt = start.addDays(5);
+    try testing.expectEqual(core.DayOfWeek.Wednesday, dt.dayOfWeek());
+    dt = start.subDays(5);
+    try testing.expectEqual(core.DayOfWeek.Sunday, dt.dayOfWeek());
+
+    dt = start.addDays(6);
+    try testing.expectEqual(core.DayOfWeek.Thursday, dt.dayOfWeek());
+    dt = start.subDays(6);
+    try testing.expectEqual(core.DayOfWeek.Saturday, dt.dayOfWeek());
+
+    dt = start.addDays(7);
+    try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
+    dt = start.subDays(7);
+    try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
 }

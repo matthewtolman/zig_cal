@@ -28,11 +28,11 @@ const nanoPerDay = nanoPerSec * 60 * 60 * 24;
 /// level.
 pub const Segments = struct {
     /// 0-23
-    hour: u8,
+    hour: u8 = 0,
     /// 0-59
-    minute: u8,
+    minute: u8 = 0,
     /// 0-59 - we don't do leap seconds
-    second: u8,
+    second: u8 = 0,
     /// 0-99,999,999
     nano: u32 = 0,
 
