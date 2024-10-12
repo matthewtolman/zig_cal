@@ -4,13 +4,15 @@ const math = @import("../utils.zig").math;
 const types = @import("../utils.zig").types;
 const testing = @import("std").testing;
 const assert = @import("std").debug.assert;
-const m = @import("std").math;
-const fmt = @import("std").fmt;
-const mem = @import("std").mem;
 const fixed = @import("./fixed.zig");
 const core = @import("./core.zig");
 const CalendarDateTime = @import("./wrappers.zig").CalendarDateTime;
 const CalendarMixin = @import("./wrappers.zig").CalendarMixin;
+const std = @import("std");
+
+const m = std.math;
+const fmt = std.fmt;
+const mem = std.mem;
 
 const AstronomicalYear = core.AstronomicalYear;
 const validateAstroYear = core.validateAstroYear;

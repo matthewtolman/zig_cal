@@ -50,24 +50,51 @@ const epochs = @import("./epochs.zig");
 /// - fn subDays(self: Cal, days: i32) Cal
 ///     Returns a new calendar with that many days subtracted from it
 pub fn CalendarMixin(comptime Cal: type) type {
-    comptime assert(@hasDecl(Cal, "toFixedDate"));
-    switch (@typeInfo(@TypeOf(Cal.toFixedDate))) {
-        .Fn => |f| {
-            comptime assert(f.params.len == 1);
-            comptime assert(f.params[0].type == Cal);
-            comptime assert(f.return_type == fixed.Date);
-        },
-        else => unreachable,
+    comptime assert(@hasDecl(Cal, "toFixedDate") or @hasDecl(Cal, "toFixedDateTime"));
+
+    const useDate = @hasDecl(Cal, "toFixedDate");
+    if (comptime @hasDecl(Cal, "toFixedDate")) {
+        switch (@typeInfo(@TypeOf(Cal.toFixedDate))) {
+            .Fn => |f| {
+                comptime assert(f.params.len == 1);
+                comptime assert(f.params[0].type == Cal);
+                comptime assert(f.return_type == fixed.Date);
+            },
+            else => unreachable,
+        }
+    } else {
+        switch (@typeInfo(@TypeOf(Cal.toFixedDateTime))) {
+            .Fn => |f| {
+                comptime assert(f.params.len == 1);
+                comptime assert(f.params[0].type == Cal);
+                comptime assert(f.return_type == fixed.DateTime);
+            },
+            else => unreachable,
+        }
     }
 
-    comptime assert(@hasDecl(Cal, "fromFixedDate"));
-    switch (@typeInfo(@TypeOf(Cal.fromFixedDate))) {
-        .Fn => |f| {
-            comptime assert(f.params.len == 1);
-            comptime assert(f.params[0].type == fixed.Date);
-            comptime assert(f.return_type == Cal);
-        },
-        else => unreachable,
+    const hasFromFixedDate = useDate and @hasDecl(Cal, "fromFixedDate");
+    const hasFromFixedDateTime = !useDate and @hasDecl(Cal, "fromFixedDateTime");
+    comptime assert(hasFromFixedDate or hasFromFixedDateTime);
+
+    if (comptime hasFromFixedDate) {
+        switch (@typeInfo(@TypeOf(Cal.fromFixedDate))) {
+            .Fn => |f| {
+                comptime assert(f.params.len == 1);
+                comptime assert(f.params[0].type == fixed.Date);
+                comptime assert(f.return_type == Cal);
+            },
+            else => unreachable,
+        }
+    } else {
+        switch (@typeInfo(@TypeOf(Cal.fromFixedDateTime))) {
+            .Fn => |f| {
+                comptime assert(f.params.len == 1);
+                comptime assert(f.params[0].type == fixed.DateTime);
+                comptime assert(f.return_type == Cal);
+            },
+            else => unreachable,
+        }
     }
 
     // Note: we have to do our hasDecl checks all at once
@@ -83,12 +110,59 @@ pub fn CalendarMixin(comptime Cal: type) type {
     const addDayOfWeek = !@hasDecl(Cal, "dayOfWeek");
 
     return struct {
+        usingnamespace struct {
+            fn asFixedDate(self: Cal) fixed.Date {
+                if (comptime useDate) {
+                    return self.toFixedDate();
+                } else {
+                    return self.toFixedDateTime().date;
+                }
+            }
+
+            fn asFixedDateTime(self: Cal) fixed.DateTime {
+                if (comptime useDate) {
+                    return fixed.DateTime{
+                        .date = self.toFixedDate(),
+                        .time = t.Segments{},
+                    };
+                } else {
+                    return self.toFixedDateTime();
+                }
+            }
+
+            usingnamespace if (useDate) struct {
+                fn fromFixed(d: fixed.Date) Cal {
+                    return Cal.fromFixedDate(d);
+                }
+
+                fn fromFixed2(d: fixed.DateTime) Cal {
+                    return Cal.fromFixedDate(d.date);
+                }
+
+                fn asFixed(self: Cal) fixed.Date {
+                    return self.toFixedDate();
+                }
+            } else struct {
+                fn fromFixed(d: fixed.DateTime) Cal {
+                    return Cal.fromFixedDateTime(d);
+                }
+
+                fn fromFixed2(d: fixed.DateTime) Cal {
+                    return Cal.fromFixedDateTime(d);
+                }
+
+                fn asFixed(self: Cal) fixed.DateTime {
+                    return self.toFixedDateTime();
+                }
+            };
+        };
+
         pub usingnamespace if (addDayDiff) struct {
             /// Gets the difference between two dates
             /// NOTE: calls toFixedDate()
             pub fn dayDifference(self: Cal, right: Cal) i32 {
-                const l = self.toFixedDate().day;
-                const r = right.toFixedDate().day;
+                const l = self.asFixedDate().day;
+                const r = right.asFixedDate().day;
                 return l - r;
             }
         } else struct {};
@@ -99,8 +173,8 @@ pub fn CalendarMixin(comptime Cal: type) type {
             pub fn compare(self: Cal, right: Cal) i32 {
                 // We don't know the order fields are defined in,
                 // so we will just convert to fixed.Date and compare that
-                const leftFixed = self.toFixedDate();
-                const rightFixed = right.toFixedDate();
+                const leftFixed = self.asFixedDate();
+                const rightFixed = right.asFixedDate();
 
                 if (leftFixed.day != rightFixed.day) {
                     if (leftFixed.day > rightFixed.day) {
@@ -115,7 +189,7 @@ pub fn CalendarMixin(comptime Cal: type) type {
         pub usingnamespace if (addDayOfWeek) struct {
             /// Returns the current day of the week for a calendar
             pub fn dayOfWeek(self: Cal) DayOfWeek {
-                const f = self.toFixedDate();
+                const f = self.asFixedDate();
                 const d = f.day - epochs.fixed - @intFromEnum(DayOfWeek.Sunday);
                 const dow = math.mod(u8, d, 7);
                 assert(dow >= 0);
@@ -136,7 +210,7 @@ pub fn CalendarMixin(comptime Cal: type) type {
 
                 // Generally, a "valid" date can convert to and from fixed.Date
                 // and have the same feilds
-                const actual = self.fromFixedDate(self.toFixedDate());
+                const actual = Cal.fromFixed(self.asFixed());
 
                 // Check all our fields to make sure they're the same
                 inline for (meta.fields(@TypeOf(self))) |field| {
@@ -165,7 +239,7 @@ pub fn CalendarMixin(comptime Cal: type) type {
 
                 // Generally, a "valid" date can convert to and from fixed.Date
                 // and have the same feilds
-                const actual = Cal.fromFixedDate(self.toFixedDate());
+                const actual = Cal.fromFixed(self.asFixed());
 
                 // Check all our fields to make sure they're the same
                 inline for (meta.fields(@TypeOf(self))) |field| {
@@ -186,7 +260,7 @@ pub fn CalendarMixin(comptime Cal: type) type {
                 if (self.isValid()) {
                     return self;
                 }
-                return Cal.fromFixedDate(self.toFixedDate());
+                return Cal.fromFixed(self.asFixed());
             }
         } else struct {};
 
@@ -194,9 +268,9 @@ pub fn CalendarMixin(comptime Cal: type) type {
             /// Adds n days to the date
             /// NOTE: calls toFixedDate and fromFixedDate
             pub fn addDays(self: Cal, days: i32) Cal {
-                var f = self.toFixedDate();
-                f.day += days;
-                return Cal.fromFixedDate(f);
+                var f = self.asFixedDateTime();
+                f.date.day += days;
+                return Cal.fromFixed2(f);
             }
         };
 
@@ -204,9 +278,9 @@ pub fn CalendarMixin(comptime Cal: type) type {
             /// Removes n days from the date
             /// NOTE: calls toFixedDate and fromFixedDate
             pub fn subDays(self: Cal, days: i32) Cal {
-                var f = self.toFixedDate();
-                f.day -= days;
-                return Cal.fromFixedDate(f);
+                var f = self.asFixedDateTime();
+                f.date.day -= days;
+                return Cal.fromFixed2(f);
             }
         };
     };

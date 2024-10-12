@@ -7,6 +7,12 @@ pub const utils = @import("utils.zig");
 test "calendars" {
     _ = calendars.gregorian.Date.fromFixedDate(calendars.fixed.Date{ .day = 12 });
     _ = try calendars.time.NanoSeconds.init(0);
+    _ = calendars.unix.Timestamp.fromFixedDateTime(
+        calendars.fixed.DateTime{
+            .date = calendars.fixed.Date{ .day = 0 },
+            .time = calendars.time.Segments{},
+        },
+    );
 }
 
 test "utils" {

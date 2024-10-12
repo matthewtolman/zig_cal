@@ -69,8 +69,8 @@ pub const Segments = struct {
     }
 
     /// Converts time segments to nanoseconds
-    pub fn toNanoSeconds(self: Segments) !NanoSeconds {
-        try self.validate();
+    pub fn toNanoSeconds(self: Segments) NanoSeconds {
+        self.validate() catch unreachable;
         const hours = toTypeMath(u64, self.hour);
         const minutes = hours * 60 + toTypeMath(u64, self.minute);
         const seconds = minutes * 60 + toTypeMath(u64, self.second);
@@ -82,10 +82,10 @@ pub const Segments = struct {
     }
 
     /// Converts time segments to day fraction
-    pub fn toDayFraction(self: Segments) !DayFraction {
-        const nano = try self.toNanoSeconds();
+    pub fn toDayFraction(self: Segments) DayFraction {
+        const nano = self.toNanoSeconds();
         nano.validate() catch unreachable;
-        const res = try nano.toDayFraction();
+        const res = nano.toDayFraction();
         res.validate() catch unreachable;
         return res;
     }
@@ -176,8 +176,8 @@ pub const DayFraction = struct {
     }
 
     /// Converts day fraction to nano seconds
-    pub fn toNanoSeconds(self: DayFraction) !NanoSeconds {
-        try self.validate();
+    pub fn toNanoSeconds(self: DayFraction) NanoSeconds {
+        self.validate() catch unreachable;
         const nanoSeconds = toTypeMath(u64, m.floor(self.frac * nanoPerDay));
         const res = NanoSeconds{ .nano = nanoSeconds };
 
@@ -186,19 +186,16 @@ pub const DayFraction = struct {
     }
 
     /// Converts day fraction to segments
-    pub fn toSegments(self: DayFraction) !Segments {
-        const nano = try self.toNanoSeconds();
+    pub fn toSegments(self: DayFraction) Segments {
+        const nano = self.toNanoSeconds();
         nano.validate() catch unreachable;
-        const res = try nano.toSegments();
+        const res = nano.toSegments();
         res.validate() catch unreachable;
         return res;
     }
 
     /// Compares two day fractions and returns -1, 0, or 1
-    pub fn compare(self: DayFraction, other: DayFraction) !i32 {
-        try self.validate();
-        try other.validate();
-
+    pub fn compare(self: DayFraction, other: DayFraction) i32 {
         var res = 0;
         if (self.frac != other.frac) {
             res = if (self.frac < other.frac) -1 else 1;
@@ -243,8 +240,8 @@ pub const NanoSeconds = struct {
     }
 
     /// Converts nano seconds to day fraction
-    pub fn toDayFraction(self: NanoSeconds) !DayFraction {
-        try self.validate();
+    pub fn toDayFraction(self: NanoSeconds) DayFraction {
+        self.validate() catch unreachable;
         // yay precision loss!
         const nano = @as(f64, @floatFromInt(self.nano));
         const res = DayFraction{ .frac = nano / nanoPerDay };
@@ -253,8 +250,8 @@ pub const NanoSeconds = struct {
     }
 
     /// Converts nano seconds to segments
-    pub fn toSegments(self: NanoSeconds) !Segments {
-        try self.validate();
+    pub fn toSegments(self: NanoSeconds) Segments {
+        self.validate() catch unreachable;
 
         var val: u64 = self.nano;
 
@@ -310,21 +307,21 @@ test "time conversions" {
     // From Segments
     try testing.expectEqualDeep(try DayFraction.init(
         0.5,
-    ), (try (try Segments.init(
+    ), (try Segments.init(
         12,
         0,
         0,
         0,
-    )).toDayFraction()));
+    )).toDayFraction());
 
     try testing.expectEqual(try NanoSeconds.init(
         nanoPerDay / 2,
-    ), (try (try Segments.init(
+    ), (try Segments.init(
         12,
         0,
         0,
         0,
-    )).toNanoSeconds()));
+    )).toNanoSeconds());
 
     // From DayFraction
     try testing.expectEqualDeep(try Segments.init(
@@ -332,11 +329,11 @@ test "time conversions" {
         0,
         0,
         0,
-    ), (try (try DayFraction.init(0.5)).toSegments()));
+    ), (try DayFraction.init(0.5)).toSegments());
 
     try testing.expectEqualDeep(try NanoSeconds.init(
         nanoPerDay / 2,
-    ), (try (try DayFraction.init(0.5)).toNanoSeconds()));
+    ), (try DayFraction.init(0.5)).toNanoSeconds());
 
     // From NanoSeconds
     try testing.expectEqualDeep(try Segments.init(
@@ -344,11 +341,11 @@ test "time conversions" {
         0,
         0,
         0,
-    ), (try (try NanoSeconds.init(nanoPerDay / 2)).toSegments()));
+    ), (try NanoSeconds.init(nanoPerDay / 2)).toSegments());
 
     try testing.expectEqualDeep(try DayFraction.init(
         0.5,
-    ), (try (try NanoSeconds.init(nanoPerDay / 2)).toDayFraction()));
+    ), (try NanoSeconds.init(nanoPerDay / 2)).toDayFraction());
 }
 
 test "time formatting" {
