@@ -67,13 +67,13 @@ fn yearFromFixed(fixedDate: fixed.Date) AstronomicalYear {
 }
 
 /// Gets a date representing the start of a year
-fn yearStart(year: AstronomicalYear) Date {
+pub fn yearStart(year: AstronomicalYear) Date {
     validateAstroYear(year) catch unreachable;
     return Date{ .year = year, .month = .January, .day = 1 };
 }
 
 /// Gets a date representing the end of a year
-fn yearEnd(year: AstronomicalYear) Date {
+pub fn yearEnd(year: AstronomicalYear) Date {
     validateAstroYear(year) catch unreachable;
     return Date{ .year = year, .month = .December, .day = 31 };
 }

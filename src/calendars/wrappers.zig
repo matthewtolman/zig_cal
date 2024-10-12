@@ -108,62 +108,39 @@ pub fn CalendarMixin(comptime Cal: type) type {
     const addAddDays = !@hasDecl(Cal, "addDays");
     const addSubDays = !@hasDecl(Cal, "subDays");
     const addDayOfWeek = !@hasDecl(Cal, "dayOfWeek");
+    const addNthWeekDay = !@hasDecl(Cal, "nthWeekDay");
+    const addDayOfWeekBefore = !@hasDecl(Cal, "dayOfWeekBefore");
+    const addDayOfWeekAfter = !@hasDecl(Cal, "dayOfWeekAfter");
+    const addDayOfNearest = !@hasDecl(Cal, "dayOfWeekNearest");
+    const addDayOfWeekOnOrBefore = !@hasDecl(Cal, "dayOfWeekOnOrBefore");
+    const addDayOfWeekOnOrAfter = !@hasDecl(Cal, "dayOfWeekOnOrAfter");
+    const addFirstWeekDay = !@hasDecl(Cal, "firstWeekDay");
+    const addLastWeekDay = !@hasDecl(Cal, "lastWeekDay");
 
     return struct {
-        usingnamespace struct {
-            fn asFixedDate(self: Cal) fixed.Date {
-                if (comptime useDate) {
-                    return self.toFixedDate();
-                } else {
-                    return self.toFixedDateTime().date;
-                }
+        usingnamespace if (useDate) struct {
+            fn fromFixed(d: fixed.Date) Cal {
+                return Cal.fromFixedDate(d);
             }
 
-            fn asFixedDateTime(self: Cal) fixed.DateTime {
-                if (comptime useDate) {
-                    return fixed.DateTime{
-                        .date = self.toFixedDate(),
-                        .time = t.Segments{},
-                    };
-                } else {
-                    return self.toFixedDateTime();
-                }
+            fn asFixed(self: Cal) fixed.Date {
+                return self.toFixedDate();
+            }
+        } else struct {
+            fn fromFixed(d: fixed.DateTime) Cal {
+                return Cal.fromFixedDateTime(d);
             }
 
-            usingnamespace if (useDate) struct {
-                fn fromFixed(d: fixed.Date) Cal {
-                    return Cal.fromFixedDate(d);
-                }
-
-                fn fromFixed2(d: fixed.DateTime) Cal {
-                    return Cal.fromFixedDate(d.date);
-                }
-
-                fn asFixed(self: Cal) fixed.Date {
-                    return self.toFixedDate();
-                }
-            } else struct {
-                fn fromFixed(d: fixed.DateTime) Cal {
-                    return Cal.fromFixedDateTime(d);
-                }
-
-                fn fromFixed2(d: fixed.DateTime) Cal {
-                    return Cal.fromFixedDateTime(d);
-                }
-
-                fn asFixed(self: Cal) fixed.DateTime {
-                    return self.toFixedDateTime();
-                }
-            };
+            fn asFixed(self: Cal) fixed.DateTime {
+                return self.toFixedDateTime();
+            }
         };
 
         pub usingnamespace if (addDayDiff) struct {
             /// Gets the difference between two dates
             /// NOTE: calls toFixedDate()
             pub fn dayDifference(self: Cal, right: Cal) i32 {
-                const l = self.asFixedDate().day;
-                const r = right.asFixedDate().day;
-                return l - r;
+                return self.asFixed().dayDifference(right.asFixed());
             }
         } else struct {};
 
@@ -171,32 +148,16 @@ pub fn CalendarMixin(comptime Cal: type) type {
             /// Compares two dates to see which is larger
             /// NOTE: calls toFixedDate()
             pub fn compare(self: Cal, right: Cal) i32 {
-                // We don't know the order fields are defined in,
-                // so we will just convert to fixed.Date and compare that
-                const leftFixed = self.asFixedDate();
-                const rightFixed = right.asFixedDate();
-
-                if (leftFixed.day != rightFixed.day) {
-                    if (leftFixed.day > rightFixed.day) {
-                        return 1;
-                    }
-                    return -1;
-                }
-                return 0;
+                return self.asFixed().compare(right.asFixed());
             }
         } else struct {};
 
         pub usingnamespace if (addDayOfWeek) struct {
             /// Returns the current day of the week for a calendar
             pub fn dayOfWeek(self: Cal) DayOfWeek {
-                const f = self.asFixedDate();
-                const d = f.day - epochs.fixed - @intFromEnum(DayOfWeek.Sunday);
-                const dow = math.mod(u8, d, 7);
-                assert(dow >= 0);
-                assert(dow < 7);
-                return @enumFromInt(dow);
+                return self.asFixed().dayOfWeek();
             }
-        };
+        } else struct {};
 
         pub usingnamespace if (addValid) struct {
             /// Checks if a date is valid
@@ -268,21 +229,83 @@ pub fn CalendarMixin(comptime Cal: type) type {
             /// Adds n days to the date
             /// NOTE: calls toFixedDate and fromFixedDate
             pub fn addDays(self: Cal, days: i32) Cal {
-                var f = self.asFixedDateTime();
-                f.date.day += days;
-                return Cal.fromFixed2(f);
+                return Cal.fromFixed(self.asFixed().addDays(days));
             }
-        };
+        } else struct {};
 
         pub usingnamespace if (addSubDays) struct {
             /// Removes n days from the date
             /// NOTE: calls toFixedDate and fromFixedDate
             pub fn subDays(self: Cal, days: i32) Cal {
-                var f = self.asFixedDateTime();
-                f.date.day -= days;
-                return Cal.fromFixed2(f);
+                return Cal.fromFixed(self.asFixed().subDays(days));
             }
-        };
+        } else struct {};
+
+        pub usingnamespace if (addNthWeekDay) struct {
+            /// Returns the nth occurence of a day of week before the current
+            /// date (or after if n is negative)
+            /// If n is zero, it will return the current date instead
+            pub fn nthWeekDay(self: Cal, n: i32, k: DayOfWeek) Cal {
+                return Cal.fromFixed(self.asFixed().nthWeekDay(n, k));
+            }
+        } else struct {};
+
+        pub usingnamespace if (addDayOfWeekBefore) struct {
+            /// Finds the first date before the current date that occurs on the target
+            /// day of the week
+            /// (from book, same as k_day_before)
+            pub fn dayOfWeekBefore(self: Cal, k: DayOfWeek) Cal {
+                return Cal.fromFixed(self.AsFixed().dayOfWeekBefore(k));
+            }
+        } else struct {};
+
+        pub usingnamespace if (addDayOfWeekAfter) struct {
+            /// Finds the first date after the current date that occurs on the target
+            /// day of the week
+            /// (from book, same as k_day_after)
+            pub fn dayOfWeekAfter(self: Cal, k: DayOfWeek) Cal {
+                return Cal.fromFixed(self.AsFixed().dayOfWeekAfter(k));
+            }
+        } else struct {};
+
+        pub usingnamespace if (addDayOfNearest) struct {
+            /// Finds the first date nearest th current date that occurs on the target
+            /// day of the week
+            /// (from book, same as k_day_neareast)
+            pub fn dayOfWeekNearest(self: Cal, k: DayOfWeek) Cal {
+                return Cal.fromFixed(self.AsFixed().dayOfWeekNearest(k));
+            }
+        } else struct {};
+
+        pub usingnamespace if (addDayOfWeekOnOrBefore) struct {
+            /// Finds the first date on or before the current date that occurs on the
+            /// target day of the week
+            /// (from book, same as k_day_on_or_before)
+            pub fn dayOfWeekOnOrBefore(self: Cal, k: DayOfWeek) Cal {
+                return Cal.fromFixed(self.AsFixed().dayOfWeekOnOrBefore(k));
+            }
+        } else struct {};
+
+        pub usingnamespace if (addDayOfWeekOnOrAfter) struct {
+            /// Finds the first date on or after the current date that occurs on the
+            /// target day of the week
+            /// (from book, same as k_day_on_or_after)
+            pub fn dayOfWeekOnOrAfter(self: Cal, k: DayOfWeek) Cal {
+                return Cal.fromFixed(self.AsFixed().dayOfWeekOnOrAfter(k));
+            }
+        } else struct {};
+
+        pub usingnamespace if (addFirstWeekDay) struct {
+            pub fn firstWeekDay(self: Cal, k: DayOfWeek) Cal {
+                return Cal.fromFixed(self.AsFixed().firstWeekDay(k));
+            }
+        } else struct {};
+
+        pub usingnamespace if (addLastWeekDay) struct {
+            pub fn lastWeekDay(self: Cal, k: DayOfWeek) Cal {
+                return Cal.fromFixed(self.AsFixed().lastWeekDay(k));
+            }
+        } else struct {};
     };
 }
 

@@ -2,6 +2,9 @@ const time = @import("./time.zig");
 const m = @import("std").math;
 const assert = @import("std").debug.assert;
 const types = @import("../utils.zig").types;
+const core = @import("./core.zig");
+const epochs = @import("./epochs.zig");
+const math = @import("../utils.zig").math;
 
 // A 32-bit int gives us 11 million years.
 // A 64-bit integer can represent way more than 11 million years.
@@ -34,6 +37,99 @@ const types = @import("../utils.zig").types;
 //      C++ constexpr: https://gitlab.com/mtolman/calendar-constexpr
 pub const Date = struct {
     day: i32,
+
+    /// Compares two dates to see which is larger
+    pub fn compare(self: Date, right: Date) i32 {
+        if (self.day != right.day) {
+            if (self.day > right.day) {
+                return 1;
+            }
+            return -1;
+        }
+        return 0;
+    }
+
+    /// Returns the current day of the week for a calendar
+    pub fn dayOfWeek(self: Date) core.DayOfWeek {
+        const d = self.day - epochs.fixed - @intFromEnum(core.DayOfWeek.Sunday);
+        const dow = math.mod(u8, d, 7);
+        assert(dow >= 0);
+        assert(dow < 7);
+        return @enumFromInt(dow);
+    }
+
+    /// Adds n days to the date
+    pub fn addDays(self: Date, days: i32) Date {
+        return Date{ .day = self.day + days };
+    }
+
+    /// Subtract n days from the date
+    pub fn subDays(self: Date, days: i32) Date {
+        return Date{ .day = self.day - days };
+    }
+
+    /// Gets the difference between two dates
+    pub fn dayDifference(self: Date, right: Date) i32 {
+        return self.day - right.day;
+    }
+
+    /// Returns the nth occurence of a day of week before the current
+    /// date (or after if n is negative)
+    /// If n is zero, it will return the current date instead
+    pub fn nthWeekDay(self: Date, n: i32, k: core.DayOfWeek) Date {
+        if (n > 0) {
+            return self.dayOfWeekBefore(k).addDays(7 * n);
+        } else if (n < 0) {
+            // using add days since n is negative
+            return self.dayOfWeekAfter(k).addDays(7 * n);
+        } else {
+            return self;
+        }
+    }
+
+    /// Finds the first date before the current date that occurs on the target
+    /// day of the week
+    /// (from book, same as k_day_before)
+    pub fn dayOfWeekBefore(self: Date, k: core.DayOfWeek) Date {
+        return self.subDays(1).dayOfWeekOnOrBefore(k);
+    }
+
+    /// Finds the first date after the current date that occurs on the target
+    /// day of the week
+    /// (from book, same as k_day_after)
+    pub fn dayOfWeekAfter(self: Date, k: core.DayOfWeek) Date {
+        return self.addDays(7).dayOfWeekOnOrBefore(k);
+    }
+
+    /// Finds the first date nearest th current date that occurs on the target
+    /// day of the week
+    /// (from book, same as k_day_neareast)
+    pub fn dayOfWeekNearest(self: Date, k: core.DayOfWeek) Date {
+        return self.addDays(3).dayOfWeekOnOrBefore(k);
+    }
+
+    /// Finds the first date on or before the current date that occurs on the
+    /// target day of the week
+    /// (from book, same as k_day_on_or_before)
+    pub fn dayOfWeekOnOrBefore(self: Date, k: core.DayOfWeek) Date {
+        const dayOfWeekPrev = self.day - @intFromEnum(k);
+        return Date{self.day - dayOfWeekPrev};
+    }
+
+    /// Finds the first date on or after the current date that occurs on the
+    /// target day of the week
+    /// (from book, same as k_day_on_or_after)
+    pub fn dayOfWeekOnOrAfter(self: Date, k: core.DayOfWeek) Date {
+        return self.addDays(6).dayOfWeekOnOrBefore(k);
+    }
+
+    pub fn firstWeekDay(self: Date, k: core.DayOfWeek) Date {
+        return self.nthWeekDay(1, k);
+    }
+
+    pub fn lastWeekDay(self: Date, k: core.DayOfWeek) Date {
+        return self.nthWeekDay(-1, k);
+    }
 };
 
 /// Represents a fixed date plus time
@@ -55,6 +151,115 @@ pub const DateTime = struct {
         const res = Moment{ .dayAndTime = days + t.frac };
         assert(res.valid());
         return res;
+    }
+
+    /// Compares two dates to see which is larger
+    pub fn compare(self: DateTime, right: DateTime) i32 {
+        const dateCmp = self.date.compare(right.date);
+        if (dateCmp != 0) {
+            return dateCmp;
+        }
+        return self.time.compare(right.time);
+    }
+
+    /// Returns the current day of the week for a calendar
+    pub fn dayOfWeek(self: DateTime) core.DayOfWeek {
+        return self.date.dayOfWeek();
+    }
+
+    /// Adds n days to the date
+    pub fn addDays(self: DateTime, days: i32) DateTime {
+        return DateTime{
+            .date = self.date.addDays(days),
+            .time = self.time,
+        };
+    }
+
+    /// Subtract n days from the date
+    pub fn subDays(self: DateTime, days: i32) DateTime {
+        return DateTime{
+            .date = self.date.subDays(days),
+            .time = self.time,
+        };
+    }
+
+    /// Gets the difference between two dates
+    pub fn dayDifference(self: DateTime, right: DateTime) i32 {
+        return self.dayDifference(right);
+    }
+
+    /// Returns the nth occurence of a day of week before the current
+    /// date (or after if n is negative)
+    /// If n is zero, it will return the current date instead
+    pub fn nthWeekDay(self: DateTime, n: i32, k: core.DayOfWeek) DateTime {
+        return DateTime{
+            .date = self.date.nthWeekDay(n, k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date before the current date that occurs on the target
+    /// day of the week
+    /// (from book, same as k_day_before)
+    pub fn dayOfWeekBefore(self: DateTime, k: core.DayOfWeek) DateTime {
+        return DateTime{
+            .date = self.date.dayOfWeekBefore(k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date after the current date that occurs on the target
+    /// day of the week
+    /// (from book, same as k_day_after)
+    pub fn dayOfWeekAfter(self: DateTime, k: core.DayOfWeek) DateTime {
+        return DateTime{
+            .date = self.date.dayOfWeekAfter(k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date nearest th current date that occurs on the target
+    /// day of the week
+    /// (from book, same as k_day_neareast)
+    pub fn dayOfWeekNearest(self: DateTime, k: core.DayOfWeek) DateTime {
+        return DateTime{
+            .date = self.date.dayOfWeekNearest(k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date on or before the current date that occurs on the
+    /// target day of the week
+    /// (from book, same as k_day_on_or_before)
+    pub fn dayOfWeekOnOrBefore(self: DateTime, k: core.DayOfWeek) DateTime {
+        return DateTime{
+            .date = self.date.dayOfWeekOnOrBefore(k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date on or after the current date that occurs on the
+    /// target day of the week
+    /// (from book, same as k_day_on_or_after)
+    pub fn dayOfWeekOnOrAfter(self: DateTime, k: core.DayOfWeek) DateTime {
+        return DateTime{
+            .date = self.date.dayOfWeekOnOrAfter(k),
+            .time = self.time,
+        };
+    }
+
+    pub fn firstWeekDay(self: DateTime, k: core.DayOfWeek) DateTime {
+        return DateTime{
+            .date = self.date.firstWeekDay(k),
+            .time = self.time,
+        };
+    }
+
+    pub fn lastWeekDay(self: DateTime, k: core.DayOfWeek) DateTime {
+        return DateTime{
+            .date = self.date.lastWeekDay(k),
+            .time = self.time,
+        };
     }
 };
 
