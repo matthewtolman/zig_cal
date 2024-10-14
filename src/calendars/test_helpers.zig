@@ -1,6 +1,6 @@
 const fixed = @import("./fixed.zig");
 
-pub const sampleDates = [_]fixed.Date{
+pub const sample_dates = [_]fixed.Date{
     fixed.Date{ .day = -214193 },
     fixed.Date{ .day = -61387 },
     fixed.Date{ .day = 25469 },

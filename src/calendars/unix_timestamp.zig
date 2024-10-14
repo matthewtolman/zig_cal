@@ -13,12 +13,14 @@ const millisecondsPerDay = secondsPerDay * 1000;
 
 /// Represents a unix timestamp in seconds
 pub const Timestamp = struct {
-    seconds: i64,
-
-    pub usingnamespace wrappers.CalendarMixin(Timestamp);
+    seconds: i64 = 0,
 
     pub fn init(seconds: i64) Timestamp {
         return Timestamp{ .seconds = seconds };
+    }
+
+    pub fn validate(self: @This()) !void {
+        _ = self;
     }
 
     pub fn toFixedDateTime(self: Timestamp) fixed.DateTime {
@@ -38,16 +40,54 @@ pub const Timestamp = struct {
         const sec = day * secondsPerDay + @divFloor(ns, @as(i64, 1e9));
         return Timestamp{ .seconds = sec };
     }
+
+    pub fn asFixed(self: @This()) fixed.DateTime {
+        return self.toFixedDateTime();
+    }
+
+    pub fn fromFixed(fd: fixed.DateTime) @This() {
+        return @This().fromFixedDateTime(fd);
+    }
+
+    pub usingnamespace wrappers.CalendarCompare(@This());
+    pub usingnamespace wrappers.CalendarDayDiff(@This());
+    pub usingnamespace wrappers.CalendarIsValid(@This());
+    pub usingnamespace wrappers.CalendarDayMath(@This());
+    pub usingnamespace wrappers.CalendarNearestValid(@This());
+    pub usingnamespace wrappers.CalendarDayOfWeek(@This());
+    pub usingnamespace wrappers.CalendarNthDays(@This());
+    
+    /// Formats iso Calendar into string form
+    /// Will be in the format YYYY-WW-D ISO with astronomical years
+    ///     (e.g. -0344-12-7 ISO       2023-34-3 ISO)
+    pub fn format(
+        self: Timestamp,
+        comptime f: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = options;
+        _ = f;
+
+        self.validate() catch {
+            try writer.print("INVALID: ", .{});
+        };
+        try writer.print("{d} UNIX", .{
+            self.seconds,
+        });
+    }
 };
 
 /// Represents a unix timestamp in milliseconds
 pub const TimestampMs = struct {
-    milliseconds: i64,
-
-    pub usingnamespace wrappers.CalendarMixin(TimestampMs);
+    milliseconds: i64 = 0,
 
     pub fn init(milliseconds: i64) TimestampMs {
         return TimestampMs{ .milliseconds = milliseconds };
+    }
+    
+    pub fn validate(self: @This()) !void {
+        _ = self;
     }
 
     pub fn toFixedDateTime(self: TimestampMs) fixed.DateTime {
@@ -67,6 +107,42 @@ pub const TimestampMs = struct {
         const ns = @as(i64, @intCast(f.time.toNanoSeconds().nano));
         const ms = day * millisecondsPerDay + @divFloor(ns, @as(i64, 1e6));
         return TimestampMs{ .milliseconds = ms };
+    }
+
+    pub fn asFixed(self: @This()) fixed.DateTime {
+        return self.toFixedDateTime();
+    }
+
+    pub fn fromFixed(fd: fixed.DateTime) @This() {
+        return @This().fromFixedDateTime(fd);
+    }
+
+    pub usingnamespace wrappers.CalendarCompare(@This());
+    pub usingnamespace wrappers.CalendarDayDiff(@This());
+    pub usingnamespace wrappers.CalendarIsValid(@This());
+    pub usingnamespace wrappers.CalendarDayMath(@This());
+    pub usingnamespace wrappers.CalendarNearestValid(@This());
+    pub usingnamespace wrappers.CalendarDayOfWeek(@This());
+    pub usingnamespace wrappers.CalendarNthDays(@This());
+    
+    /// Formats iso Calendar into string form
+    /// Will be in the format YYYY-WW-D ISO with astronomical years
+    ///     (e.g. -0344-12-7 ISO       2023-34-3 ISO)
+    pub fn format(
+        self: TimestampMs,
+        comptime f: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = options;
+        _ = f;
+
+        self.validate() catch {
+            try writer.print("INVALID: ", .{});
+        };
+        try writer.print("{d}ms UNIX", .{
+            self.milliseconds,
+        });
     }
 };
 
@@ -207,7 +283,7 @@ test "dayOfWeek ms" {
 }
 
 test "unix convert" {
-    const fixedDates = @import("./test_helpers.zig").sampleDates;
+    const fixed_dates = @import("./test_helpers.zig").sample_dates;
 
     const expected = [_]Timestamp{
         Timestamp{ .seconds = -80641958400 },
@@ -245,9 +321,9 @@ test "unix convert" {
         Timestamp{ .seconds = 3930249600 },
     };
 
-    assert(fixedDates.len == expected.len);
+    assert(fixed_dates.len == expected.len);
 
-    for (fixedDates, 0..) |fixedDate, index| {
+    for (fixed_dates, 0..) |fixedDate, index| {
         const e = expected[index];
 
         // Test convertintg to fixed
@@ -255,16 +331,16 @@ test "unix convert" {
         try testing.expectEqual(fixedDate.day, actualFixed.date.day);
 
         // Test converting from fixed
-        const actualGreg = Timestamp.fromFixedDateTime(
+        const actualTs = Timestamp.fromFixedDateTime(
             fixed.DateTime{ .date = fixedDate, .time = time.Segments{} },
         );
-        try testing.expect(0 == actualGreg.compare(e));
+        try testing.expect(0 == actualTs.compare(e));
 
-        const actualGregMs = TimestampMs.fromFixedDateTime(
+        const actualTsMs = TimestampMs.fromFixedDateTime(
             fixed.DateTime{ .date = fixedDate, .time = time.Segments{} },
         );
         try testing.expect(
-            actualGregMs.milliseconds == actualGreg.seconds * 1000,
+            actualTsMs.milliseconds == actualTs.seconds * 1000,
         );
     }
 
@@ -280,4 +356,62 @@ test "unix convert" {
 
     const unixTsRes = Timestamp.fromFixedDateTime(fixedTs);
     try testing.expectEqualDeep(unixTs, unixTsRes);
+}
+
+test "unix formatting" {
+    var list = @import("std").ArrayList(u8).init(testing.allocator);
+    defer list.deinit();
+    const testCases = [_]struct {
+        date: Timestamp,
+        expected: []const u8,
+    }{
+        .{
+            .date = Timestamp{},
+            .expected = "0 UNIX",
+        },
+        .{
+            .date = Timestamp{.seconds = 1232981273, },
+            .expected = "1232981273 UNIX",
+        },
+        .{
+            .date = Timestamp{.seconds = -349829834, },
+            .expected = "-349829834 UNIX",
+        },
+    };
+
+    for (testCases) |testCase| {
+        defer list.clearRetainingCapacity();
+
+        try list.writer().print("{}", .{testCase.date});
+        try testing.expectEqualStrings(testCase.expected, list.items);
+    }
+}
+
+test "unix ms formatting" {
+    var list = @import("std").ArrayList(u8).init(testing.allocator);
+    defer list.deinit();
+    const testCases = [_]struct {
+        date: TimestampMs,
+        expected: []const u8,
+    }{
+        .{
+            .date = TimestampMs{},
+            .expected = "0ms UNIX",
+        },
+        .{
+            .date = TimestampMs{.milliseconds = 1232981273, },
+            .expected = "1232981273ms UNIX",
+        },
+        .{
+            .date = TimestampMs{.milliseconds = -349829834, },
+            .expected = "-349829834ms UNIX",
+        },
+    };
+
+    for (testCases) |testCase| {
+        defer list.clearRetainingCapacity();
+
+        try list.writer().print("{}", .{testCase.date});
+        try testing.expectEqualStrings(testCase.expected, list.items);
+    }
 }

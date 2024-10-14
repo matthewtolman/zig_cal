@@ -1,311 +1,129 @@
-const fixed = @import("../calendars/fixed.zig");
-const t = @import("../calendars.zig").time;
+const fixed = @import("./fixed.zig");
+const t = @import("./time.zig");
 const assert = @import("std").debug.assert;
 const fmt = @import("std").fmt;
 const mem = @import("std").mem;
-const ValidationError = @import("./core.zig").ValidationError;
 const DayOfWeek = @import("./core.zig").DayOfWeek;
 const meta = @import("std").meta;
 const math = @import("../utils/math.zig");
 const epochs = @import("./epochs.zig");
 
-/// Mixin to provide generic versions of many helpful methods via fixed.Date.
-/// These generic methods include converting to and from fixed.Date which may be
-/// slower than a specific method. However, many of these methods are usually
-/// implemented by casting back and forth anyways, so it can help in many cases.
-///
-/// If a specific function is already provided on the class, then a generic
-/// method will not be provided and the existing method will be used. This is
-/// to allow for calendars to provide better optimized versions of methods while
-/// still having a generic method for less-used functions.
-///
-/// Requires the following methods to be present on the calendar system:
-///  - fromFixedDate(fixedDate: fixed.Date) Date
-///     - Creates a new date from a fixed date
-///  - toFixedDate(self: Date) fixed.Date
-///     - Converts a date to a fixed date
-///
-/// IMPORTANT! NONE of the above methods can call ANY of the generated methods.
-///            Doing so will cause an infinite recursive loop and blow the stack.
-///            This is because all of the generated methods call fromFixedDate
-///            and toFixedDate.
-///
-/// Since this is a mixin, it will not affect the top level scope of the struct.
-/// Binding to the mixin is still needed.
-///
-/// Ensures that the following methods are present:
-/// - fn validate(self: Cal) !void
-///     Validates a calendar is valid
-/// - fn dayDifference(self: Cal, right: Cal) i32
-///     Difference (in days) between two calendars
-/// - fn compare(self: Cal, right: Cal) i32
-///     Compares two calendars. -1 if self < right, 0 if ==, 1 if >
-/// - fn isValid(self: Cal) bool
-///     Makes sure a calendar is valid
-/// - fn nearestValid(self: Cal) Cal
-///     Returns a calendar date that is the nearest valid representation to the
-///     current date
-/// - fn addDays(self: Cal, days: i32) Cal
-///     Returns a new calendar with that many days added to it
-/// - fn subDays(self: Cal, days: i32) Cal
-///     Returns a new calendar with that many days subtracted from it
-pub fn CalendarMixin(comptime Cal: type) type {
-    comptime assert(@hasDecl(Cal, "toFixedDate") or @hasDecl(Cal, "toFixedDateTime"));
-
-    const useDate = @hasDecl(Cal, "toFixedDate");
-    if (comptime @hasDecl(Cal, "toFixedDate")) {
-        switch (@typeInfo(@TypeOf(Cal.toFixedDate))) {
-            .Fn => |f| {
-                comptime assert(f.params.len == 1);
-                comptime assert(f.params[0].type == Cal);
-                comptime assert(f.return_type == fixed.Date);
-            },
-            else => unreachable,
-        }
-    } else {
-        switch (@typeInfo(@TypeOf(Cal.toFixedDateTime))) {
-            .Fn => |f| {
-                comptime assert(f.params.len == 1);
-                comptime assert(f.params[0].type == Cal);
-                comptime assert(f.return_type == fixed.DateTime);
-            },
-            else => unreachable,
-        }
-    }
-
-    const hasFromFixedDate = useDate and @hasDecl(Cal, "fromFixedDate");
-    const hasFromFixedDateTime = !useDate and @hasDecl(Cal, "fromFixedDateTime");
-    comptime assert(hasFromFixedDate or hasFromFixedDateTime);
-
-    if (comptime hasFromFixedDate) {
-        switch (@typeInfo(@TypeOf(Cal.fromFixedDate))) {
-            .Fn => |f| {
-                comptime assert(f.params.len == 1);
-                comptime assert(f.params[0].type == fixed.Date);
-                comptime assert(f.return_type == Cal);
-            },
-            else => unreachable,
-        }
-    } else {
-        switch (@typeInfo(@TypeOf(Cal.fromFixedDateTime))) {
-            .Fn => |f| {
-                comptime assert(f.params.len == 1);
-                comptime assert(f.params[0].type == fixed.DateTime);
-                comptime assert(f.return_type == Cal);
-            },
-            else => unreachable,
-        }
-    }
-
-    // Note: we have to do our hasDecl checks all at once
-    // Otherwise, the zig compiler gets confused that we're checking a struct
-    // that whe're also modifying, and so it complains
-    const addDayDiff = !@hasDecl(Cal, "dayDifference");
-    const addCompare = !@hasDecl(Cal, "compare");
-    const addValid = !@hasDecl(Cal, "isValid");
-    const addValidate = !@hasDecl(Cal, "validate");
-    const addNearestValid = !@hasDecl(Cal, "nearestValid");
-    const addAddDays = !@hasDecl(Cal, "addDays");
-    const addSubDays = !@hasDecl(Cal, "subDays");
-    const addDayOfWeek = !@hasDecl(Cal, "dayOfWeek");
-    const addNthWeekDay = !@hasDecl(Cal, "nthWeekDay");
-    const addDayOfWeekBefore = !@hasDecl(Cal, "dayOfWeekBefore");
-    const addDayOfWeekAfter = !@hasDecl(Cal, "dayOfWeekAfter");
-    const addDayOfNearest = !@hasDecl(Cal, "dayOfWeekNearest");
-    const addDayOfWeekOnOrBefore = !@hasDecl(Cal, "dayOfWeekOnOrBefore");
-    const addDayOfWeekOnOrAfter = !@hasDecl(Cal, "dayOfWeekOnOrAfter");
-    const addFirstWeekDay = !@hasDecl(Cal, "firstWeekDay");
-    const addLastWeekDay = !@hasDecl(Cal, "lastWeekDay");
-
+pub fn CalendarDayDiff(comptime Cal: type) type {
     return struct {
-        usingnamespace if (useDate) struct {
-            fn fromFixed(d: fixed.Date) Cal {
-                return Cal.fromFixedDate(d);
+        /// Gets the difference between two dates in days
+        pub fn dayDifference(self: Cal, right: Cal) i32 {
+            return self.asFixed().dayDifference(right.asFixed());
+        }
+    };
+}
+
+pub fn CalendarDayMath(comptime Cal: type) type {
+    return struct {
+        /// Adds n days to the current date
+        pub fn addDays(self: Cal, n: i32) Cal {
+            return Cal.fromFixed(self.asFixed().addDays(n));
+        }
+
+        /// subtracts n days from the current date
+        pub fn subDays(self: Cal, n: i32) Cal {
+            return Cal.fromFixed(self.asFixed().subDays(n));
+        }
+    };
+}
+
+pub fn CalendarIsValid(comptime Cal: type) type {
+    return struct {
+        /// Checks if the current date is valid
+        pub fn isValid(self: Cal) bool {
+            self.validate() catch return false;
+            return true;
+        }
+    };
+}
+
+pub fn CalendarNearestValid(comptime Cal: type) type {
+    return struct {
+        /// Gets the nearest valid date for the current "date"
+        pub fn nearestValid(self: Cal) Cal {
+            if (self.isValid()) {
+                return self;
             }
+            return Cal.fromFixed(self.asFixed());
+        }
+    };
+}
 
-            fn asFixed(self: Cal) fixed.Date {
-                return self.toFixedDate();
-            }
-        } else struct {
-            fn fromFixed(d: fixed.DateTime) Cal {
-                return Cal.fromFixedDateTime(d);
-            }
+pub fn CalendarDayOfWeek(comptime Cal: type) type {
+    return struct {
+        /// Gets the day of the week tied to the date
+        pub fn dayOfWeek(self: Cal) DayOfWeek {
+            return self.asFixed().dayOfWeek();
+        }
+    };
+}
 
-            fn asFixed(self: Cal) fixed.DateTime {
-                return self.toFixedDateTime();
-            }
-        };
+pub fn CalendarNthDays(comptime Cal: type) type {
+    return struct {
+        /// Returns the nth occurence of a day of week before the current
+        /// date (or after if n is negative)
+        /// If n is zero, it will return the current date instead
+        pub fn nthWeekDay(self: Cal, n: i32, k: DayOfWeek) Cal {
+            return Cal.fromFixed(self.asFixed().nthWeekDay(n, k));
+        }
 
-        pub usingnamespace if (addDayDiff) struct {
-            /// Gets the difference between two dates
-            /// NOTE: calls toFixedDate()
-            pub fn dayDifference(self: Cal, right: Cal) i32 {
-                return self.asFixed().dayDifference(right.asFixed());
-            }
-        } else struct {};
+        /// Finds the first date before the current date that occurs on the target
+        /// day of the week
+        /// (from book, same as k_day_before)
+        pub fn dayOfWeekBefore(self: Cal, k: DayOfWeek) Cal {
+            return Cal.fromFixed(self.AsFixed().dayOfWeekBefore(k));
+        }
 
-        pub usingnamespace if (addCompare) struct {
-            /// Compares two dates to see which is larger
-            /// NOTE: calls toFixedDate()
-            pub fn compare(self: Cal, right: Cal) i32 {
-                return self.asFixed().compare(right.asFixed());
-            }
-        } else struct {};
+        /// Finds the first date after the current date that occurs on the target
+        /// day of the week
+        /// (from book, same as k_day_after)
+        pub fn dayOfWeekAfter(self: Cal, k: DayOfWeek) Cal {
+            return Cal.fromFixed(self.AsFixed().dayOfWeekAfter(k));
+        }
 
-        pub usingnamespace if (addDayOfWeek) struct {
-            /// Returns the current day of the week for a calendar
-            pub fn dayOfWeek(self: Cal) DayOfWeek {
-                return self.asFixed().dayOfWeek();
-            }
-        } else struct {};
+        /// Finds the first date nearest th current date that occurs on the target
+        /// day of the week
+        /// (from book, same as k_day_neareast)
+        pub fn dayOfWeekNearest(self: Cal, k: DayOfWeek) Cal {
+            return Cal.fromFixed(self.AsFixed().dayOfWeekNearest(k));
+        }
 
-        pub usingnamespace if (addValid) struct {
-            /// Checks if a date is valid
-            /// NOTE: calls toFixedDate() and fromFixedDate()
-            /// (unless validate() is manually provided)
-            pub fn isValid(self: Cal) bool {
-                if (comptime !addValidate) {
-                    self.validate() catch return false;
-                    return true;
-                }
+        /// Finds the first date on or before the current date that occurs on the
+        /// target day of the week
+        /// (from book, same as k_day_on_or_before)
+        pub fn dayOfWeekOnOrBefore(self: Cal, k: DayOfWeek) Cal {
+            return Cal.fromFixed(self.AsFixed().dayOfWeekOnOrBefore(k));
+        }
 
-                // Generally, a "valid" date can convert to and from fixed.Date
-                // and have the same feilds
-                const actual = Cal.fromFixed(self.asFixed());
+        /// Finds the first date on or after the current date that occurs on the
+        /// target day of the week
+        /// (from book, same as k_day_on_or_after)
+        pub fn dayOfWeekOnOrAfter(self: Cal, k: DayOfWeek) Cal {
+            return Cal.fromFixed(self.AsFixed().dayOfWeekOnOrAfter(k));
+        }
 
-                // Check all our fields to make sure they're the same
-                inline for (meta.fields(@TypeOf(self))) |field| {
-                    const orig = @as(field.type, @field(self, field.name));
-                    const real = @as(field.type, @field(actual, field.name));
+        pub fn firstWeekDay(self: Cal, k: DayOfWeek) Cal {
+            return Cal.fromFixed(self.AsFixed().firstWeekDay(k));
+        }
 
-                    if (orig != real) {
-                        return false;
-                    }
-                }
-                return true;
-            }
-        } else struct {};
+        pub fn lastWeekDay(self: Cal, k: DayOfWeek) Cal {
+            return Cal.fromFixed(self.AsFixed().lastWeekDay(k));
+        }
+    };
+}
 
-        pub usingnamespace if (addValidate) struct {
-            /// Checks if a date is valid
-            /// NOTE: calls toFixedDate() and fromFixedDate()
-            /// (unless isValid() is manually provided)
-            pub fn validate(self: Cal) !void {
-                if (comptime !addValid) {
-                    if (!self.isValid()) {
-                        return ValidationError.InvalidOther;
-                    }
-                    return;
-                }
-
-                // Generally, a "valid" date can convert to and from fixed.Date
-                // and have the same feilds
-                const actual = Cal.fromFixed(self.asFixed());
-
-                // Check all our fields to make sure they're the same
-                inline for (meta.fields(@TypeOf(self))) |field| {
-                    const orig = @as(field.type, @field(self, field.name));
-                    const real = @as(field.type, @field(actual, field.name));
-
-                    if (orig != real) {
-                        return ValidationError.InvalidOther;
-                    }
-                }
-            }
-        } else struct {};
-
-        pub usingnamespace if (addNearestValid) struct {
-            /// Converts a date to the nearest valid date
-            /// NOTE: calls toFixedDate and fromFixedDate
-            pub fn nearestValid(self: Cal) Cal {
-                if (self.isValid()) {
-                    return self;
-                }
-                return Cal.fromFixed(self.asFixed());
-            }
-        } else struct {};
-
-        pub usingnamespace if (addAddDays) struct {
-            /// Adds n days to the date
-            /// NOTE: calls toFixedDate and fromFixedDate
-            pub fn addDays(self: Cal, days: i32) Cal {
-                return Cal.fromFixed(self.asFixed().addDays(days));
-            }
-        } else struct {};
-
-        pub usingnamespace if (addSubDays) struct {
-            /// Removes n days from the date
-            /// NOTE: calls toFixedDate and fromFixedDate
-            pub fn subDays(self: Cal, days: i32) Cal {
-                return Cal.fromFixed(self.asFixed().subDays(days));
-            }
-        } else struct {};
-
-        pub usingnamespace if (addNthWeekDay) struct {
-            /// Returns the nth occurence of a day of week before the current
-            /// date (or after if n is negative)
-            /// If n is zero, it will return the current date instead
-            pub fn nthWeekDay(self: Cal, n: i32, k: DayOfWeek) Cal {
-                return Cal.fromFixed(self.asFixed().nthWeekDay(n, k));
-            }
-        } else struct {};
-
-        pub usingnamespace if (addDayOfWeekBefore) struct {
-            /// Finds the first date before the current date that occurs on the target
-            /// day of the week
-            /// (from book, same as k_day_before)
-            pub fn dayOfWeekBefore(self: Cal, k: DayOfWeek) Cal {
-                return Cal.fromFixed(self.AsFixed().dayOfWeekBefore(k));
-            }
-        } else struct {};
-
-        pub usingnamespace if (addDayOfWeekAfter) struct {
-            /// Finds the first date after the current date that occurs on the target
-            /// day of the week
-            /// (from book, same as k_day_after)
-            pub fn dayOfWeekAfter(self: Cal, k: DayOfWeek) Cal {
-                return Cal.fromFixed(self.AsFixed().dayOfWeekAfter(k));
-            }
-        } else struct {};
-
-        pub usingnamespace if (addDayOfNearest) struct {
-            /// Finds the first date nearest th current date that occurs on the target
-            /// day of the week
-            /// (from book, same as k_day_neareast)
-            pub fn dayOfWeekNearest(self: Cal, k: DayOfWeek) Cal {
-                return Cal.fromFixed(self.AsFixed().dayOfWeekNearest(k));
-            }
-        } else struct {};
-
-        pub usingnamespace if (addDayOfWeekOnOrBefore) struct {
-            /// Finds the first date on or before the current date that occurs on the
-            /// target day of the week
-            /// (from book, same as k_day_on_or_before)
-            pub fn dayOfWeekOnOrBefore(self: Cal, k: DayOfWeek) Cal {
-                return Cal.fromFixed(self.AsFixed().dayOfWeekOnOrBefore(k));
-            }
-        } else struct {};
-
-        pub usingnamespace if (addDayOfWeekOnOrAfter) struct {
-            /// Finds the first date on or after the current date that occurs on the
-            /// target day of the week
-            /// (from book, same as k_day_on_or_after)
-            pub fn dayOfWeekOnOrAfter(self: Cal, k: DayOfWeek) Cal {
-                return Cal.fromFixed(self.AsFixed().dayOfWeekOnOrAfter(k));
-            }
-        } else struct {};
-
-        pub usingnamespace if (addFirstWeekDay) struct {
-            pub fn firstWeekDay(self: Cal, k: DayOfWeek) Cal {
-                return Cal.fromFixed(self.AsFixed().firstWeekDay(k));
-            }
-        } else struct {};
-
-        pub usingnamespace if (addLastWeekDay) struct {
-            pub fn lastWeekDay(self: Cal, k: DayOfWeek) Cal {
-                return Cal.fromFixed(self.AsFixed().lastWeekDay(k));
-            }
-        } else struct {};
+/// Mixin to provide generic versions of compare.
+/// Requires asFixed and fromFixed to be present.
+pub fn CalendarCompare(comptime Cal: type) type {
+    return struct {
+        /// Compares two dates. 1 if >, 0 if ==, -1 if less
+        pub fn compare(self: Cal, right: Cal) i32 {
+            return self.asFixed().compare(right.asFixed());
+        }
     };
 }
 
@@ -325,14 +143,6 @@ pub fn CalendarMixin(comptime Cal: type) type {
 pub fn CalendarDateTime(comptime Cal: type) type {
     const Time = t.Segments;
     comptime assert(@hasDecl(Cal, "toFixedDate"));
-    switch (@typeInfo(@TypeOf(Cal.toFixedDate))) {
-        .Fn => |f| {
-            comptime assert(f.params.len == 1);
-            comptime assert(f.params[0].type == Cal);
-            comptime assert(f.return_type == fixed.Date);
-        },
-        else => unreachable,
-    }
 
     const hasFormat = if (comptime @hasDecl(Cal, "format"))
         true
@@ -340,31 +150,10 @@ pub fn CalendarDateTime(comptime Cal: type) type {
         false;
 
     comptime assert(@hasDecl(Cal, "fromFixedDate"));
-    switch (@typeInfo(@TypeOf(Cal.fromFixedDate))) {
-        .Fn => |f| {
-            comptime assert(f.params.len == 1);
-            comptime assert(f.params[0].type == fixed.Date);
-            comptime assert(f.return_type == Cal);
-        },
-        else => unreachable,
-    }
 
     comptime assert(@hasDecl(Cal, "compare"));
-    switch (@typeInfo(@TypeOf(Cal.compare))) {
-        .Fn => |f| {
-            comptime assert(f.params.len == 2);
-            comptime assert(f.return_type == i32);
-            comptime assert(f.params[0].type == Cal);
-            comptime assert(f.params[1].type == Cal);
-        },
-        else => unreachable,
-    }
 
     comptime assert(@hasDecl(Cal, "validate"));
-    comptime assert(switch (@typeInfo(@TypeOf(Cal.validate))) {
-        .Fn => |f| f.params.len == 1 and f.params[0].type == Cal,
-        else => unreachable,
-    });
 
     return struct {
         date: Cal,

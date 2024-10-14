@@ -112,8 +112,10 @@ pub const Date = struct {
     /// target day of the week
     /// (from book, same as k_day_on_or_before)
     pub fn dayOfWeekOnOrBefore(self: Date, k: core.DayOfWeek) Date {
-        const dayOfWeekPrev = self.day - @intFromEnum(k);
-        return Date{self.day - dayOfWeekPrev};
+        const dayOfWeekPrev = (Date{
+            .day = self.day - @intFromEnum(k),
+        }).dayOfWeek();
+        return Date{ .day = self.day - @intFromEnum(dayOfWeekPrev) };
     }
 
     /// Finds the first date on or after the current date that occurs on the
@@ -294,3 +296,111 @@ pub const Moment = struct {
         };
     }
 };
+
+test "nth weekday" {
+    const std = @import("std");
+    const date = Date{ .day = 38 };
+    try std.testing.expectEqual(38, date.nthWeekDay(0, .Wednesday).day);
+    try std.testing.expectEqual(39, date.nthWeekDay(1, .Thursday).day);
+    try std.testing.expectEqual(37, date.nthWeekDay(-1, .Tuesday).day);
+}
+
+test "day of week" {
+    const std = @import("std");
+    const sample_dates = @import("./test_helpers.zig").sample_dates;
+
+    const expected = [_]core.DayOfWeek{
+        .Sunday,
+        .Wednesday,
+        .Wednesday,
+        .Sunday,
+        .Wednesday,
+        .Monday,
+        .Saturday,
+        .Sunday,
+        .Sunday,
+        .Friday,
+        .Saturday,
+        .Friday,
+        .Sunday,
+        .Sunday,
+        .Wednesday,
+        .Saturday,
+        .Saturday,
+        .Saturday,
+        .Wednesday,
+        .Sunday,
+        .Friday,
+        .Sunday,
+        .Monday,
+        .Wednesday,
+        .Sunday,
+        .Sunday,
+        .Monday,
+        .Monday,
+        .Thursday,
+        .Tuesday,
+        .Sunday,
+        .Wednesday,
+        .Sunday,
+    };
+
+    for (sample_dates, expected) |input, e| {
+        try std.testing.expectEqual(e, input.dayOfWeek());
+    }
+}
+
+test "Day of week on or before" {
+    const std = @import("std");
+    try std.testing.expectEqual((Date{ .day = 0 }).dayOfWeekOnOrBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 1 }).dayOfWeekOnOrBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 2 }).dayOfWeekOnOrBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 3 }).dayOfWeekOnOrBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 4 }).dayOfWeekOnOrBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 5 }).dayOfWeekOnOrBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 6 }).dayOfWeekOnOrBefore(.Sunday), Date{ .day = 0 });
+}
+
+test "Day of week before" {
+    const std = @import("std");
+    try std.testing.expectEqual((Date{ .day = 0 }).dayOfWeekBefore(.Sunday), Date{ .day = -7 });
+    try std.testing.expectEqual((Date{ .day = 1 }).dayOfWeekBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 2 }).dayOfWeekBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 3 }).dayOfWeekBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 4 }).dayOfWeekBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 5 }).dayOfWeekBefore(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 6 }).dayOfWeekBefore(.Sunday), Date{ .day = 0 });
+}
+
+test "Day of week on or after" {
+    const std = @import("std");
+    try std.testing.expectEqual((Date{ .day = 0 }).dayOfWeekOnOrAfter(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 1 }).dayOfWeekOnOrAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 2 }).dayOfWeekOnOrAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 3 }).dayOfWeekOnOrAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 4 }).dayOfWeekOnOrAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 5 }).dayOfWeekOnOrAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 6 }).dayOfWeekOnOrAfter(.Sunday), Date{ .day = 7 });
+}
+
+test "Day of week after" {
+    const std = @import("std");
+    try std.testing.expectEqual((Date{ .day = 0 }).dayOfWeekAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 1 }).dayOfWeekAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 2 }).dayOfWeekAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 3 }).dayOfWeekAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 4 }).dayOfWeekAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 5 }).dayOfWeekAfter(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 6 }).dayOfWeekAfter(.Sunday), Date{ .day = 7 });
+}
+
+test "Day of week nearest" {
+    const std = @import("std");
+    try std.testing.expectEqual((Date{ .day = 0 }).dayOfWeekNearest(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 1 }).dayOfWeekNearest(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 2 }).dayOfWeekNearest(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 3 }).dayOfWeekNearest(.Sunday), Date{ .day = 0 });
+    try std.testing.expectEqual((Date{ .day = 4 }).dayOfWeekNearest(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 5 }).dayOfWeekNearest(.Sunday), Date{ .day = 7 });
+    try std.testing.expectEqual((Date{ .day = 6 }).dayOfWeekNearest(.Sunday), Date{ .day = 7 });
+}

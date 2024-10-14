@@ -6,8 +6,7 @@ const testing = @import("std").testing;
 const assert = @import("std").debug.assert;
 const fixed = @import("./fixed.zig");
 const core = @import("./core.zig");
-const CalendarDateTime = @import("./wrappers.zig").CalendarDateTime;
-const CalendarMixin = @import("./wrappers.zig").CalendarMixin;
+const wrappers = @import("./wrappers.zig");
 const std = @import("std");
 
 const m = std.math;
@@ -136,7 +135,17 @@ pub const Date = struct {
             return ValidationError.InvalidDay;
         }
 
-        return init(y, @enumFromInt(month), @intCast(day));
+        const res = Date{
+            .year = y,
+            .month = @enumFromInt(month),
+            .day = @as(u8, @intCast(day)),
+        };
+
+        const dayMax = res.daysInMonth();
+        if (res.day > dayMax or res.day < 1) {
+            return core.ValidationError.InvalidDay;
+        }
+        return res;
     }
 
     /// Validates a date
@@ -351,7 +360,20 @@ pub const Date = struct {
         return res;
     }
 
-    pub usingnamespace CalendarMixin(Date);
+    pub fn asFixed(self: @This()) fixed.Date {
+        return self.toFixedDate();
+    }
+
+    pub fn fromFixed(fd: fixed.Date) @This() {
+        return @This().fromFixedDate(fd);
+    }
+
+    pub usingnamespace wrappers.CalendarDayDiff(@This());
+    pub usingnamespace wrappers.CalendarIsValid(@This());
+    pub usingnamespace wrappers.CalendarDayMath(@This());
+    pub usingnamespace wrappers.CalendarNearestValid(@This());
+    pub usingnamespace wrappers.CalendarDayOfWeek(@This());
+    pub usingnamespace wrappers.CalendarNthDays(@This());
 };
 
 test "days in year" {
@@ -380,7 +402,7 @@ test "days in year" {
 }
 
 test "gregorian conversions" {
-    const fixedDates = @import("./test_helpers.zig").sampleDates;
+    const fixed_dates = @import("./test_helpers.zig").sample_dates;
 
     const expected = [_]Date{
         Date{ .year = @enumFromInt(-586), .month = @enumFromInt(7), .day = 24 },
@@ -418,13 +440,11 @@ test "gregorian conversions" {
         Date{ .year = @enumFromInt(2094), .month = @enumFromInt(7), .day = 18 },
     };
 
-    assert(fixedDates.len == expected.len);
+    assert(fixed_dates.len == expected.len);
 
     const timeSegment = try time.Segments.init(12, 0, 0, 0);
 
-    for (fixedDates, 0..) |fixedDate, index| {
-        const e = expected[index];
-
+    for (fixed_dates, expected) |fixedDate, e| {
         // Test convertintg to fixed
         const actualFixed = e.toFixedDate();
         try testing.expectEqual(fixedDate.day, actualFixed.day);
@@ -458,7 +478,7 @@ test "gregorian conversions" {
     try testing.expectEqualDeep(init, Date.fromFixedDate(init.toFixedDate()));
 
     // We're seeding this manually to make sure the tests are't flaky
-    var prng = @import("std").rand.DefaultPrng.init(592941772305693043);
+    var prng = std.Random.DefaultPrng.init(592941772305693043);
     const rand = prng.random();
 
     // Run our calculation a lot to make sure it works
@@ -553,7 +573,7 @@ test "gregorian leap year" {
 }
 
 /// Represents a gregorian date and time combination
-pub const DateTime = CalendarDateTime(Date);
+pub const DateTime = wrappers.CalendarDateTime(Date);
 
 test "date time" {
     const dt1 = try DateTime.init(

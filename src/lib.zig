@@ -13,6 +13,8 @@ test "calendars" {
             .time = calendars.time.Segments{},
         },
     );
+    _ = try calendars.iso.Date.initNums(2024, 4, 4);
+    _ = try calendars.julian.Date.initNums(2024, 4, 4);
 }
 
 test "utils" {
