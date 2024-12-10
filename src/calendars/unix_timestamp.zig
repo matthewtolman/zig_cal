@@ -1,18 +1,19 @@
-const epochs = @import("./epochs.zig");
+const epochs = @import("epochs.zig");
 const time = @import("../calendars.zig").time;
 const math = @import("../utils.zig").math;
 const std = @import("std");
-const fixed = @import("./fixed.zig");
-const wrappers = @import("./wrappers.zig");
+const fixed = @import("fixed.zig");
+const wrappers = @import("wrappers.zig");
 const assert = @import("std").debug.assert;
 const testing = @import("std").testing;
-const core = @import("./core.zig");
+const core = @import("core.zig");
 
 const secondsPerDay = 60 * 60 * 24;
 const millisecondsPerDay = secondsPerDay * 1000;
 
-/// Represents a unix timestamp in seconds
+/// Represents a unix timestamp in seconds (UTC)
 pub const Timestamp = struct {
+    pub const Name = "Unix Timestamp";
     seconds: i64 = 0,
 
     pub fn init(seconds: i64) Timestamp {
@@ -56,7 +57,7 @@ pub const Timestamp = struct {
     pub usingnamespace wrappers.CalendarNearestValid(@This());
     pub usingnamespace wrappers.CalendarDayOfWeek(@This());
     pub usingnamespace wrappers.CalendarNthDays(@This());
-    
+
     /// Formats iso Calendar into string form
     /// Will be in the format YYYY-WW-D ISO with astronomical years
     ///     (e.g. -0344-12-7 ISO       2023-34-3 ISO)
@@ -78,14 +79,15 @@ pub const Timestamp = struct {
     }
 };
 
-/// Represents a unix timestamp in milliseconds
+/// Represents a unix timestamp in milliseconds (UTC)
 pub const TimestampMs = struct {
+    pub const Name = "Unix Timestamp (Milliseconds)";
     milliseconds: i64 = 0,
 
     pub fn init(milliseconds: i64) TimestampMs {
         return TimestampMs{ .milliseconds = milliseconds };
     }
-    
+
     pub fn validate(self: @This()) !void {
         _ = self;
     }
@@ -124,7 +126,7 @@ pub const TimestampMs = struct {
     pub usingnamespace wrappers.CalendarNearestValid(@This());
     pub usingnamespace wrappers.CalendarDayOfWeek(@This());
     pub usingnamespace wrappers.CalendarNthDays(@This());
-    
+
     /// Formats iso Calendar into string form
     /// Will be in the format YYYY-WW-D ISO with astronomical years
     ///     (e.g. -0344-12-7 ISO       2023-34-3 ISO)
@@ -370,11 +372,15 @@ test "unix formatting" {
             .expected = "0 UNIX",
         },
         .{
-            .date = Timestamp{.seconds = 1232981273, },
+            .date = Timestamp{
+                .seconds = 1232981273,
+            },
             .expected = "1232981273 UNIX",
         },
         .{
-            .date = Timestamp{.seconds = -349829834, },
+            .date = Timestamp{
+                .seconds = -349829834,
+            },
             .expected = "-349829834 UNIX",
         },
     };
@@ -399,11 +405,15 @@ test "unix ms formatting" {
             .expected = "0ms UNIX",
         },
         .{
-            .date = TimestampMs{.milliseconds = 1232981273, },
+            .date = TimestampMs{
+                .milliseconds = 1232981273,
+            },
             .expected = "1232981273ms UNIX",
         },
         .{
-            .date = TimestampMs{.milliseconds = -349829834, },
+            .date = TimestampMs{
+                .milliseconds = -349829834,
+            },
             .expected = "-349829834ms UNIX",
         },
     };

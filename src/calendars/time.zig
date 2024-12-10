@@ -2,14 +2,14 @@ const toTypeMath = @import("../utils.zig").types.toTypeMath;
 const m = @import("std").math;
 const math = @import("../utils.zig").math;
 const assert = @import("std").debug.assert;
-const ValidationError = @import("./core.zig").ValidationError;
+const ValidationError = @import("core.zig").ValidationError;
 const fmt = @import("std").fmt;
 const testing = @import("std").testing;
 const mem = @import("std").mem;
 
-const nanoPerSec = @as(u64, @intFromFloat(1e9));
+const nanoPerSec = @as(comptime_int, @intFromFloat(1e9));
 //                 ns/s         s/m  m/h  h/d
-const nanoPerDay = nanoPerSec * 60 * 60 * 24;
+const nanoPerDay: comptime_int = nanoPerSec * 60 * 60 * 24;
 
 /// Represents time in Hour, Minut, Second, and Nanosecond fragments
 /// Using u32 for nano since I only need to represent 1 billion nanoseconds,
@@ -90,6 +90,18 @@ pub const Segments = struct {
         return res;
     }
 
+    /// Converts to a raw float representing day fraction
+    /// Allows overflowing and underflowing in the event the date is invalid
+    /// Note: will need to verify in range [0, 1) before converting to DayFraction
+    pub fn toDayFractionRaw(self: Segments) f64 {
+        const hours = toTypeMath(u64, self.hour);
+        const minutes = hours * 60 + toTypeMath(u64, self.minute);
+        const seconds = minutes * 60 + toTypeMath(u64, self.second);
+        const nano1 = seconds * nanoPerSec + toTypeMath(u64, self.nano);
+        const nano = @as(f64, @floatFromInt(nano1));
+        return nano / nanoPerDay;
+    }
+
     /// Compares two segments
     pub fn compare(self: Segments, other: Segments) i32 {
         var res: i32 = 0;
@@ -109,7 +121,7 @@ pub const Segments = struct {
     }
 
     pub fn format(
-        self: Segments,
+        self: @This(),
         comptime f: []const u8,
         options: fmt.FormatOptions,
         writer: anytype,
@@ -206,7 +218,7 @@ pub const DayFraction = struct {
     }
 
     pub fn format(
-        self: DayFraction,
+        self: @This(),
         comptime f: []const u8,
         options: fmt.FormatOptions,
         writer: anytype,
@@ -220,6 +232,7 @@ pub const DayFraction = struct {
 
 /// Time of day in nanoseconds. This struct goes brrrrrr.
 pub const NanoSeconds = struct {
+    pub const max = nanoPerDay;
     /// The number of nanoseconds
     /// Must be in the range [0..nanoPerDay)
     nano: u64,
@@ -292,7 +305,7 @@ pub const NanoSeconds = struct {
 
     /// Formats nanoseconds
     pub fn format(
-        self: NanoSeconds,
+        self: @This(),
         comptime f: []const u8,
         options: fmt.FormatOptions,
         writer: anytype,

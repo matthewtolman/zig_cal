@@ -1,5 +1,6 @@
 pub const calendars = @import("calendars.zig");
 pub const utils = @import("utils.zig");
+pub const zone = @import("calendars/zone.zig");
 
 // Due to how "pub const ... = @import(...)" works, we do need to dereference
 // the code in order to get the test cases to actually run with zig build test
@@ -20,4 +21,12 @@ test "calendars" {
 test "utils" {
     _ = utils.math.mod(i32, 2, 3);
     _ = utils.types.toTypeMath(i32, 2);
+    _ = utils.convert(
+        try calendars.gregorian.Date.initNums(2024, 4, 4),
+        calendars.iso.Date,
+    );
+}
+
+test "formatting" {
+    _ = @import("formatting.zig");
 }

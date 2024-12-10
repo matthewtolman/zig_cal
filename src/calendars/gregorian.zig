@@ -1,12 +1,12 @@
-const epochs = @import("./epochs.zig");
+const epochs = @import("epochs.zig");
 const time = @import("../calendars.zig").time;
 const math = @import("../utils.zig").math;
 const types = @import("../utils.zig").types;
 const testing = @import("std").testing;
 const assert = @import("std").debug.assert;
-const fixed = @import("./fixed.zig");
-const core = @import("./core.zig");
-const wrappers = @import("./wrappers.zig");
+const fixed = @import("fixed.zig");
+const core = @import("core.zig");
+const wrappers = @import("wrappers.zig");
 const std = @import("std");
 
 const m = std.math;
@@ -111,6 +111,7 @@ pub fn isLeapYear(year: AstronomicalYear) bool {
 /// calendar. Keeping track of the Gregorian leap years is less significant
 /// when plotting out the events that happened after the big bang.
 pub const Date = struct {
+    pub const Name = "Gregorian";
     year: AstronomicalYear = @enumFromInt(0),
     month: Month = .January,
     day: u8 = 1,
@@ -402,7 +403,7 @@ test "days in year" {
 }
 
 test "gregorian conversions" {
-    const fixed_dates = @import("./test_helpers.zig").sample_dates;
+    const fixed_dates = @import("test_helpers.zig").sample_dates;
 
     const expected = [_]Date{
         Date{ .year = @enumFromInt(-586), .month = @enumFromInt(7), .day = 24 },
@@ -574,6 +575,7 @@ test "gregorian leap year" {
 
 /// Represents a gregorian date and time combination
 pub const DateTime = wrappers.CalendarDateTime(Date);
+pub const DateTimeZoned = wrappers.CalendarDateTimeZoned(Date);
 
 test "date time" {
     const dt1 = try DateTime.init(
@@ -604,41 +606,189 @@ test "day math" {
 
 test "dayOfWeek" {
     const start = try Date.initNums(2024, 10, 11);
-    var dt = start;
+    const UTC = @import("zone.zig").UTC;
 
-    try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
-    dt = start.addDays(1);
-    try testing.expectEqual(core.DayOfWeek.Saturday, dt.dayOfWeek());
-    dt = start.subDays(1);
-    try testing.expectEqual(core.DayOfWeek.Thursday, dt.dayOfWeek());
+    const TestCase = struct {
+        day_diff: i32,
+        dow: core.DayOfWeek,
+    };
 
-    dt = start.addDays(2);
-    try testing.expectEqual(core.DayOfWeek.Sunday, dt.dayOfWeek());
-    dt = start.subDays(2);
-    try testing.expectEqual(core.DayOfWeek.Wednesday, dt.dayOfWeek());
+    const test_cases = [_]TestCase{
+        .{ .day_diff = 0, .dow = .Friday },
+        .{ .day_diff = 1, .dow = .Saturday },
+        .{ .day_diff = 2, .dow = .Sunday },
+        .{ .day_diff = 3, .dow = .Monday },
+        .{ .day_diff = 4, .dow = .Tuesday },
+        .{ .day_diff = 5, .dow = .Wednesday },
+        .{ .day_diff = 6, .dow = .Thursday },
+        .{ .day_diff = 7, .dow = .Friday },
+        .{ .day_diff = -1, .dow = .Thursday },
+        .{ .day_diff = -2, .dow = .Wednesday },
+        .{ .day_diff = -3, .dow = .Tuesday },
+        .{ .day_diff = -4, .dow = .Monday },
+        .{ .day_diff = -5, .dow = .Sunday },
+        .{ .day_diff = -6, .dow = .Saturday },
+        .{ .day_diff = -7, .dow = .Friday },
+    };
 
-    dt = start.addDays(3);
-    try testing.expectEqual(core.DayOfWeek.Monday, dt.dayOfWeek());
-    dt = start.subDays(3);
-    try testing.expectEqual(core.DayOfWeek.Tuesday, dt.dayOfWeek());
+    for (test_cases) |tc| {
+        const d = start.addDays(tc.day_diff);
+        try testing.expectEqual(tc.dow, d.dayOfWeek());
 
-    dt = start.addDays(4);
-    try testing.expectEqual(core.DayOfWeek.Tuesday, dt.dayOfWeek());
-    dt = start.subDays(4);
-    try testing.expectEqual(core.DayOfWeek.Monday, dt.dayOfWeek());
+        const dt = DateTime{
+            .date = d,
+            .time = (try time.DayFraction.init(0.5)).toSegments(),
+        };
+        try testing.expectEqual(tc.dow, dt.dayOfWeek());
 
-    dt = start.addDays(5);
-    try testing.expectEqual(core.DayOfWeek.Wednesday, dt.dayOfWeek());
-    dt = start.subDays(5);
-    try testing.expectEqual(core.DayOfWeek.Sunday, dt.dayOfWeek());
+        const dtz = DateTimeZoned{
+            .date = d,
+            .time = (try time.DayFraction.init(0.5)).toSegments(),
+            .zone = UTC,
+        };
+        try testing.expectEqual(tc.dow, dtz.dayOfWeek());
+    }
+}
 
-    dt = start.addDays(6);
-    try testing.expectEqual(core.DayOfWeek.Thursday, dt.dayOfWeek());
-    dt = start.subDays(6);
-    try testing.expectEqual(core.DayOfWeek.Saturday, dt.dayOfWeek());
+test "timezone safe" {
+    const zone = @import("zone.zig");
+    const zone1 = try zone.TimeZone.init(.{ .hours = -7, .minutes = 10, .seconds = 4 }, null);
+    const zone2 = try zone.TimeZone.init(.{ .hours = 5, .minutes = 10, .seconds = 4 }, null);
 
-    dt = start.addDays(7);
-    try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
-    dt = start.subDays(7);
-    try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
+    // Test no date rollover
+    const time_utc_safe = try DateTimeZoned.init(
+        try Date.initNums(2024, 2, 28),
+        try DateTime.Time.init(12, 30, 24, 0),
+        zone.UTC,
+    );
+    const time_z1_safe = time_utc_safe.toTimezone(zone1);
+    const time_z2_safe = time_utc_safe.toTimezone(zone2);
+
+    try std.testing.expectEqualDeep(time_utc_safe.date, time_z1_safe.date);
+    try std.testing.expectEqualDeep(time_utc_safe.date, time_z2_safe.date);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(5, time_z1_safe.time.hour);
+    try std.testing.expectEqual(20, time_z1_safe.time.minute);
+    try std.testing.expectEqual(20, time_z1_safe.time.second);
+
+    try std.testing.expectEqual(17, time_z2_safe.time.hour);
+    try std.testing.expectEqual(40, time_z2_safe.time.minute);
+    try std.testing.expectEqual(28, time_z2_safe.time.second);
+
+    try std.testing.expectEqualDeep(time_utc_safe, time_z1_safe.toUtc());
+    try std.testing.expectEqualDeep(time_utc_safe, time_z2_safe.toUtc());
+}
+
+test "timezone roll back" {
+    const zone = @import("zone.zig");
+    const zone1 = try zone.TimeZone.init(.{ .hours = -7, .minutes = 10, .seconds = 4 }, null);
+
+    // Test no date rollover
+    const time_utc_safe = try DateTimeZoned.init(
+        try Date.initNums(2024, 2, 1),
+        try DateTime.Time.init(2, 30, 24, 0),
+        zone.UTC,
+    );
+    const time_z1_safe = time_utc_safe.toTimezone(zone1);
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(2024, @intFromEnum(time_z1_safe.date.year));
+    try std.testing.expectEqual(1, @intFromEnum(time_z1_safe.date.month));
+    try std.testing.expectEqual(31, time_z1_safe.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(19, time_z1_safe.time.hour);
+    try std.testing.expectEqual(20, time_z1_safe.time.minute);
+    try std.testing.expectEqual(20, time_z1_safe.time.second);
+
+    try std.testing.expectEqualDeep(time_utc_safe, time_z1_safe.toUtc());
+}
+
+test "timezone roll forward" {
+    const zone = @import("zone.zig");
+    const zone2 = try zone.TimeZone.init(.{ .hours = 5, .minutes = 10, .seconds = 4 }, null);
+
+    // Test no date rollover
+    const time_utc_safe = try DateTimeZoned.init(
+        try Date.initNums(2024, 2, 29),
+        try DateTime.Time.init(23, 30, 24, 0),
+        zone.UTC,
+    );
+    const time_z2_safe = time_utc_safe.toTimezone(zone2);
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(2024, @intFromEnum(time_z2_safe.date.year));
+    try std.testing.expectEqual(3, @intFromEnum(time_z2_safe.date.month));
+    try std.testing.expectEqual(1, time_z2_safe.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(4, time_z2_safe.time.hour);
+    try std.testing.expectEqual(40, time_z2_safe.time.minute);
+    try std.testing.expectEqual(28, time_z2_safe.time.second);
+
+    try std.testing.expectEqualDeep(time_utc_safe, time_z2_safe.toUtc());
+}
+
+test "datenearest valid" {
+    // Test no date rollover
+    const dt1 = Date{
+        .year = @enumFromInt(2024),
+        .month = @enumFromInt(2),
+        .day = 30,
+    };
+    const dt2 = Date.fromFixedDate(dt1.toFixedDate());
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(2024, @intFromEnum(dt2.year));
+    try std.testing.expectEqual(3, @intFromEnum(dt2.month));
+    try std.testing.expectEqual(1, dt2.day);
+}
+
+test "datetime nearest valid" {
+    // Test no date rollover
+    const dt1 = DateTime{
+        .date = .{
+            .year = @enumFromInt(2024),
+            .month = @enumFromInt(2),
+            .day = 30,
+        },
+        .time = .{ .hour = 29, .minute = 61, .second = 61, .nano = 0 },
+    };
+    const dt2 = dt1.nearestValid();
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(2024, @intFromEnum(dt2.date.year));
+    try std.testing.expectEqual(3, @intFromEnum(dt2.date.month));
+    try std.testing.expectEqual(2, dt2.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(6, dt2.time.hour);
+    try std.testing.expectEqual(2, dt2.time.minute);
+    try std.testing.expectEqual(0, dt2.time.second);
+}
+
+test "datetimezone nearest valid" {
+    const zone = @import("zone.zig");
+    // Test no date rollover
+    const dt1 = DateTimeZoned{
+        .date = .{
+            .year = @enumFromInt(2024),
+            .month = @enumFromInt(2),
+            .day = 30,
+        },
+        .time = .{ .hour = 29, .minute = 61, .second = 61, .nano = 0 },
+        .zone = zone.UTC,
+    };
+    const dt2 = dt1.nearestValid();
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(2024, @intFromEnum(dt2.date.year));
+    try std.testing.expectEqual(3, @intFromEnum(dt2.date.month));
+    try std.testing.expectEqual(2, dt2.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(6, dt2.time.hour);
+    try std.testing.expectEqual(2, dt2.time.minute);
+    try std.testing.expectEqual(0, dt2.time.second);
 }

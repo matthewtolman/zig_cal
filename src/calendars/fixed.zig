@@ -1,9 +1,10 @@
-const time = @import("./time.zig");
+const time = @import("time.zig");
 const m = @import("std").math;
 const assert = @import("std").debug.assert;
 const types = @import("../utils.zig").types;
-const core = @import("./core.zig");
-const epochs = @import("./epochs.zig");
+const core = @import("core.zig");
+const epochs = @import("epochs.zig");
+const zone = @import("zone.zig");
 const math = @import("../utils.zig").math;
 
 // A 32-bit int gives us 11 million years.
@@ -137,16 +138,17 @@ pub const Date = struct {
 /// Represents a fixed date plus time
 /// Prefer this over Moment whenever possible
 pub const DateTime = struct {
+    pub const Time = time.Segments;
     date: Date,
     time: time.Segments,
 
     /// Checks if we're valid
-    pub fn validate(self: DateTime) !void {
+    pub fn validate(self: @This()) !void {
         try self.time.validate();
     }
 
     /// Converts to a moment - avoid if possible
-    pub fn toMoment(self: DateTime) Moment {
+    pub fn toMoment(self: @This()) Moment {
         assert(self.valid());
         const days = types.toTypeMath(f64, self.date.day);
         const t = self.time.toDayFraction();
@@ -156,7 +158,7 @@ pub const DateTime = struct {
     }
 
     /// Compares two dates to see which is larger
-    pub fn compare(self: DateTime, right: DateTime) i32 {
+    pub fn compare(self: @This(), right: @This()) i32 {
         const dateCmp = self.date.compare(right.date);
         if (dateCmp != 0) {
             return dateCmp;
@@ -165,36 +167,36 @@ pub const DateTime = struct {
     }
 
     /// Returns the current day of the week for a calendar
-    pub fn dayOfWeek(self: DateTime) core.DayOfWeek {
+    pub fn dayOfWeek(self: @This()) core.DayOfWeek {
         return self.date.dayOfWeek();
     }
 
     /// Adds n days to the date
-    pub fn addDays(self: DateTime, days: i32) DateTime {
-        return DateTime{
+    pub fn addDays(self: @This(), days: i32) @This() {
+        return @This(){
             .date = self.date.addDays(days),
             .time = self.time,
         };
     }
 
     /// Subtract n days from the date
-    pub fn subDays(self: DateTime, days: i32) DateTime {
-        return DateTime{
+    pub fn subDays(self: @This(), days: i32) @This() {
+        return @This(){
             .date = self.date.subDays(days),
             .time = self.time,
         };
     }
 
     /// Gets the difference between two dates
-    pub fn dayDifference(self: DateTime, right: DateTime) i32 {
+    pub fn dayDifference(self: @This(), right: @This()) i32 {
         return self.dayDifference(right);
     }
 
     /// Returns the nth occurence of a day of week before the current
     /// date (or after if n is negative)
     /// If n is zero, it will return the current date instead
-    pub fn nthWeekDay(self: DateTime, n: i32, k: core.DayOfWeek) DateTime {
-        return DateTime{
+    pub fn nthWeekDay(self: @This(), n: i32, k: core.DayOfWeek) @This() {
+        return @This(){
             .date = self.date.nthWeekDay(n, k),
             .time = self.time,
         };
@@ -203,8 +205,8 @@ pub const DateTime = struct {
     /// Finds the first date before the current date that occurs on the target
     /// day of the week
     /// (from book, same as k_day_before)
-    pub fn dayOfWeekBefore(self: DateTime, k: core.DayOfWeek) DateTime {
-        return DateTime{
+    pub fn dayOfWeekBefore(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
             .date = self.date.dayOfWeekBefore(k),
             .time = self.time,
         };
@@ -213,8 +215,8 @@ pub const DateTime = struct {
     /// Finds the first date after the current date that occurs on the target
     /// day of the week
     /// (from book, same as k_day_after)
-    pub fn dayOfWeekAfter(self: DateTime, k: core.DayOfWeek) DateTime {
-        return DateTime{
+    pub fn dayOfWeekAfter(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
             .date = self.date.dayOfWeekAfter(k),
             .time = self.time,
         };
@@ -223,8 +225,8 @@ pub const DateTime = struct {
     /// Finds the first date nearest th current date that occurs on the target
     /// day of the week
     /// (from book, same as k_day_neareast)
-    pub fn dayOfWeekNearest(self: DateTime, k: core.DayOfWeek) DateTime {
-        return DateTime{
+    pub fn dayOfWeekNearest(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
             .date = self.date.dayOfWeekNearest(k),
             .time = self.time,
         };
@@ -233,8 +235,8 @@ pub const DateTime = struct {
     /// Finds the first date on or before the current date that occurs on the
     /// target day of the week
     /// (from book, same as k_day_on_or_before)
-    pub fn dayOfWeekOnOrBefore(self: DateTime, k: core.DayOfWeek) DateTime {
-        return DateTime{
+    pub fn dayOfWeekOnOrBefore(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
             .date = self.date.dayOfWeekOnOrBefore(k),
             .time = self.time,
         };
@@ -243,22 +245,214 @@ pub const DateTime = struct {
     /// Finds the first date on or after the current date that occurs on the
     /// target day of the week
     /// (from book, same as k_day_on_or_after)
-    pub fn dayOfWeekOnOrAfter(self: DateTime, k: core.DayOfWeek) DateTime {
-        return DateTime{
+    pub fn dayOfWeekOnOrAfter(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
             .date = self.date.dayOfWeekOnOrAfter(k),
             .time = self.time,
         };
     }
 
-    pub fn firstWeekDay(self: DateTime, k: core.DayOfWeek) DateTime {
-        return DateTime{
+    pub fn firstWeekDay(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
             .date = self.date.firstWeekDay(k),
             .time = self.time,
         };
     }
 
-    pub fn lastWeekDay(self: DateTime, k: core.DayOfWeek) DateTime {
-        return DateTime{
+    pub fn lastWeekDay(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
+            .date = self.date.lastWeekDay(k),
+            .time = self.time,
+        };
+    }
+};
+
+/// Represents a fixed date plus time
+/// Prefer this over Moment whenever possible
+pub const DateTimeZoned = struct {
+    pub const Time = time.Segments;
+    pub const Zone = zone.TimeZone;
+    date: Date,
+    time: time.Segments,
+    zone: zone.TimeZone,
+
+    /// Converts it to a UTC date time
+    pub fn toUtc(self: @This()) @This() {
+        const timeNs = self.time.toNanoSeconds();
+        const offset = self.zone.offsetInNanoSeconds();
+        var date = self.date;
+        var nano = @as(i64, @intCast(timeNs.nano)) - offset;
+
+        if (nano < 0) {
+            date = date.subDays(1);
+            nano = time.NanoSeconds.max + nano;
+        } else if (nano >= time.NanoSeconds.max) {
+            date = date.addDays(1);
+            nano = nano - time.NanoSeconds.max;
+        }
+        assert(nano >= 0);
+        assert(nano < time.NanoSeconds.max);
+
+        const dt = (time.NanoSeconds.init(@as(u64, @intCast(nano))) catch unreachable).toSegments();
+        return .{
+            .date = date,
+            .time = dt,
+            .zone = zone.UTC,
+        };
+    }
+
+    /// Converts it to a different timezone
+    pub fn toTimezone(self: @This(), tz: zone.TimeZone) @This() {
+        if (tz.compareOffset(zone.UTC) == 0) {
+            var res = self.toUtc();
+            res.zone = tz;
+            return res;
+        }
+
+        const utc = if (self.zone.compare(zone.UTC) == 0) self else self.toUtc();
+        const timeNs = utc.time.toNanoSeconds();
+        const offset = tz.offsetInNanoSeconds();
+        var date = utc.date;
+        var nano = @as(i64, @intCast(timeNs.nano)) + offset;
+
+        if (nano < 0) {
+            date = date.subDays(1);
+            nano = time.NanoSeconds.max + nano;
+        } else if (nano >= time.NanoSeconds.max) {
+            date = date.addDays(1);
+            nano = nano - time.NanoSeconds.max;
+        }
+        assert(nano >= 0);
+        assert(nano < time.NanoSeconds.max);
+
+        const dt = (time.NanoSeconds.init(@as(u64, @intCast(nano))) catch unreachable).toSegments();
+        return .{
+            .date = date,
+            .time = dt,
+            .zone = tz,
+        };
+    }
+
+    /// Checks if we're valid
+    pub fn validate(self: @This()) !void {
+        try self.time.validate();
+    }
+
+    /// Converts to a moment - avoid if possible
+    pub fn toMoment(self: @This()) Moment {
+        assert(self.valid());
+        const days = types.toTypeMath(f64, self.date.day);
+        const t = self.time.toDayFraction();
+        const res = Moment{ .dayAndTime = days + t.frac };
+        assert(res.valid());
+        return res;
+    }
+
+    /// Compares two dates to see which is larger
+    pub fn compare(self: @This(), right: @This()) i32 {
+        const dateCmp = self.date.compare(right.date);
+        if (dateCmp != 0) {
+            return dateCmp;
+        }
+        return self.time.compare(right.time);
+    }
+
+    /// Returns the current day of the week for a calendar
+    pub fn dayOfWeek(self: @This()) core.DayOfWeek {
+        return self.date.dayOfWeek();
+    }
+
+    /// Adds n days to the date
+    pub fn addDays(self: @This(), days: i32) @This() {
+        return @This(){
+            .date = self.date.addDays(days),
+            .time = self.time,
+        };
+    }
+
+    /// Subtract n days from the date
+    pub fn subDays(self: @This(), days: i32) @This() {
+        return @This(){
+            .date = self.date.subDays(days),
+            .time = self.time,
+        };
+    }
+
+    /// Gets the difference between two dates
+    pub fn dayDifference(self: @This(), right: @This()) i32 {
+        const r2 = right.toTimezone(self.zone);
+        return self.date.dayDifference(r2.date);
+    }
+
+    /// Returns the nth occurence of a day of week before the current
+    /// date (or after if n is negative)
+    /// If n is zero, it will return the current date instead
+    pub fn nthWeekDay(self: @This(), n: i32, k: core.DayOfWeek) @This() {
+        return @This(){
+            .date = self.date.nthWeekDay(n, k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date before the current date that occurs on the target
+    /// day of the week
+    /// (from book, same as k_day_before)
+    pub fn dayOfWeekBefore(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
+            .date = self.date.dayOfWeekBefore(k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date after the current date that occurs on the target
+    /// day of the week
+    /// (from book, same as k_day_after)
+    pub fn dayOfWeekAfter(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
+            .date = self.date.dayOfWeekAfter(k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date nearest th current date that occurs on the target
+    /// day of the week
+    /// (from book, same as k_day_neareast)
+    pub fn dayOfWeekNearest(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
+            .date = self.date.dayOfWeekNearest(k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date on or before the current date that occurs on the
+    /// target day of the week
+    /// (from book, same as k_day_on_or_before)
+    pub fn dayOfWeekOnOrBefore(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
+            .date = self.date.dayOfWeekOnOrBefore(k),
+            .time = self.time,
+        };
+    }
+
+    /// Finds the first date on or after the current date that occurs on the
+    /// target day of the week
+    /// (from book, same as k_day_on_or_after)
+    pub fn dayOfWeekOnOrAfter(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
+            .date = self.date.dayOfWeekOnOrAfter(k),
+            .time = self.time,
+        };
+    }
+
+    pub fn firstWeekDay(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
+            .date = self.date.firstWeekDay(k),
+            .time = self.time,
+        };
+    }
+
+    pub fn lastWeekDay(self: @This(), k: core.DayOfWeek) @This() {
+        return @This(){
             .date = self.date.lastWeekDay(k),
             .time = self.time,
         };
@@ -307,7 +501,7 @@ test "nth weekday" {
 
 test "day of week" {
     const std = @import("std");
-    const sample_dates = @import("./test_helpers.zig").sample_dates;
+    const sample_dates = @import("test_helpers.zig").sample_dates;
 
     const expected = [_]core.DayOfWeek{
         .Sunday,
@@ -403,4 +597,80 @@ test "Day of week nearest" {
     try std.testing.expectEqual((Date{ .day = 4 }).dayOfWeekNearest(.Sunday), Date{ .day = 7 });
     try std.testing.expectEqual((Date{ .day = 5 }).dayOfWeekNearest(.Sunday), Date{ .day = 7 });
     try std.testing.expectEqual((Date{ .day = 6 }).dayOfWeekNearest(.Sunday), Date{ .day = 7 });
+}
+
+test "timezone safe" {
+    const std = @import("std");
+    const zone1 = try zone.TimeZone.init(.{ .hours = -7, .minutes = 10, .seconds = 4 }, null);
+    const zone2 = try zone.TimeZone.init(.{ .hours = 5, .minutes = 10, .seconds = 4 }, null);
+
+    // Test no date rollover
+    const time_utc_safe = DateTimeZoned{
+        .date = Date{ .day = 24 },
+        .time = try DateTime.Time.init(12, 30, 24, 0),
+        .zone = zone.UTC,
+    };
+    const time_z1_safe = time_utc_safe.toTimezone(zone1);
+    const time_z2_safe = time_utc_safe.toTimezone(zone2);
+
+    try std.testing.expectEqualDeep(time_utc_safe.date, time_z1_safe.date);
+    try std.testing.expectEqualDeep(time_utc_safe.date, time_z2_safe.date);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(5, time_z1_safe.time.hour);
+    try std.testing.expectEqual(20, time_z1_safe.time.minute);
+    try std.testing.expectEqual(20, time_z1_safe.time.second);
+
+    try std.testing.expectEqual(17, time_z2_safe.time.hour);
+    try std.testing.expectEqual(40, time_z2_safe.time.minute);
+    try std.testing.expectEqual(28, time_z2_safe.time.second);
+
+    try std.testing.expectEqualDeep(time_utc_safe, time_z1_safe.toUtc());
+    try std.testing.expectEqualDeep(time_utc_safe, time_z2_safe.toUtc());
+}
+
+test "timezone roll back" {
+    const std = @import("std");
+    const zone1 = try zone.TimeZone.init(.{ .hours = -7, .minutes = 10, .seconds = 4 }, null);
+
+    // Test no date rollover
+    const time_utc_safe = DateTimeZoned{
+        .date = Date{ .day = 24 },
+        .time = try DateTime.Time.init(2, 30, 24, 0),
+        .zone = zone.UTC,
+    };
+    const time_z1_safe = time_utc_safe.toTimezone(zone1);
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(23, time_z1_safe.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(19, time_z1_safe.time.hour);
+    try std.testing.expectEqual(20, time_z1_safe.time.minute);
+    try std.testing.expectEqual(20, time_z1_safe.time.second);
+
+    try std.testing.expectEqualDeep(time_utc_safe, time_z1_safe.toUtc());
+}
+
+test "timezone roll forward" {
+    const std = @import("std");
+    const zone2 = try zone.TimeZone.init(.{ .hours = 5, .minutes = 10, .seconds = 4 }, null);
+
+    // Test no date rollover
+    const time_utc_safe = DateTimeZoned{
+        .date = Date{ .day = 24 },
+        .time = try DateTime.Time.init(23, 30, 24, 0),
+        .zone = zone.UTC,
+    };
+    const time_z2_safe = time_utc_safe.toTimezone(zone2);
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(25, time_z2_safe.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(4, time_z2_safe.time.hour);
+    try std.testing.expectEqual(40, time_z2_safe.time.minute);
+    try std.testing.expectEqual(28, time_z2_safe.time.second);
+
+    try std.testing.expectEqualDeep(time_utc_safe, time_z2_safe.toUtc());
 }

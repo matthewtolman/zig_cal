@@ -1,14 +1,14 @@
-const epochs = @import("./epochs.zig");
+const epochs = @import("epochs.zig");
 const time = @import("../calendars.zig").time;
 const math = @import("../utils.zig").math;
 const types = @import("../utils.zig").types;
 const testing = @import("std").testing;
 const assert = @import("std").debug.assert;
-const fixed = @import("./fixed.zig");
-const core = @import("./core.zig");
+const fixed = @import("fixed.zig");
+const core = @import("core.zig");
 const std = @import("std");
-const gregorian = @import("./gregorian.zig");
-const wrappers = @import("./wrappers.zig");
+const gregorian = @import("gregorian.zig");
+const wrappers = @import("wrappers.zig");
 
 const m = std.math;
 const fmt = std.fmt;
@@ -20,6 +20,7 @@ const astroToAD = core.astroToAD;
 const ValidationError = core.ValidationError;
 
 pub const Date = struct {
+    pub const Name = "ISO";
     year: AstronomicalYear = @enumFromInt(0),
     // The iso calendar works on weeks not months
     week: u8 = 1,
@@ -120,7 +121,7 @@ pub const Date = struct {
     pub usingnamespace wrappers.CalendarNearestValid(@This());
     pub usingnamespace wrappers.CalendarDayOfWeek(@This());
     pub usingnamespace wrappers.CalendarNthDays(@This());
-    
+
     /// Formats iso Calendar into string form
     /// Will be in the format YYYY-WW-D ISO with astronomical years
     ///     (e.g. -0344-12-7 ISO       2023-34-3 ISO)
@@ -154,6 +155,8 @@ pub const Date = struct {
 };
 
 pub const DateTime = wrappers.CalendarDateTime(Date);
+pub const DateTimeZoned = wrappers.CalendarDateTimeZoned(Date);
+
 test "dayOfWeek ms" {
     const start = try Date.initNums(2024, 41, 5);
     var dt = start;

@@ -1,11 +1,11 @@
-const epochs = @import("./epochs.zig");
+const epochs = @import("epochs.zig");
 const time = @import("../calendars.zig").time;
 const math = @import("../utils.zig").math;
 const std = @import("std");
 const assert = std.debug.assert;
-const core = @import("./core.zig");
-const wrappers = @import("./wrappers.zig");
-const fixed = @import("./fixed.zig");
+const core = @import("core.zig");
+const wrappers = @import("wrappers.zig");
+const fixed = @import("fixed.zig");
 const testing = std.testing;
 
 pub const Month = enum(u8) {
@@ -24,6 +24,7 @@ pub const Month = enum(u8) {
 };
 
 pub const Date = struct {
+    pub const Name = "Julian";
     year: core.AnnoDominiYear = @enumFromInt(1),
     month: Month = .January,
     day: u8 = 1,
@@ -207,6 +208,31 @@ pub const Date = struct {
         return @This().fromFixedDate(fd);
     }
 
+    pub fn week(self: @This()) u32 {
+        const approx = @intFromEnum(
+            @This().fromFixedDate(self.subDays(3)).year,
+        );
+        const approxIso = Date{
+            .year = @enumFromInt(approx + 1),
+            .week = 1,
+            .day = 1,
+        };
+
+        const approxFixed = approxIso.toFixedDate();
+        const year = if (self.compare(approxFixed) >= 0) approx + 1 else approx;
+        const start = Date{
+            .year = @enumFromInt(year),
+            .week = 1,
+            .day = 1,
+        };
+        const startFixed = start.toFixedDate();
+        assert(startFixed.compare(self) <= 0);
+
+        const res_week = @divFloor(self.day - startFixed.day, 7) + 1;
+        assert(res_week >= 1 and res_week <= 53);
+        return res_week;
+    }
+
     pub usingnamespace wrappers.CalendarDayDiff(@This());
     pub usingnamespace wrappers.CalendarIsValid(@This());
     pub usingnamespace wrappers.CalendarDayMath(@This());
@@ -216,7 +242,7 @@ pub const Date = struct {
 };
 
 test "julian conversions" {
-    const fixed_dates = @import("./test_helpers.zig").sample_dates;
+    const fixed_dates = @import("test_helpers.zig").sample_dates;
 
     const expected = [_]Date{
         Date{ .year = @enumFromInt(-587), .month = @enumFromInt(7), .day = 30 },
