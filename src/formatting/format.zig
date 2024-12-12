@@ -8,6 +8,7 @@ const unix = @import("../calendars/unix_timestamp.zig");
 const iso = @import("../calendars/iso.zig");
 const zone = @import("../calendars/zone.zig");
 const fixed = @import("../calendars/fixed.zig");
+const features = @import("../utils/features.zig");
 
 pub fn formatDate(
     self: *const Format,
@@ -44,10 +45,10 @@ pub fn formatDate(
             .DayOfYearOrdinal => try Locale.ordinal(writer, dayOfYearOf(u32, d)),
             .DayOfWeekNum => try writeDayOfWeekOf(d, writer, seg.str.len),
             .DayOfWeekOrdinal => try Locale.ordinal(writer, dayOfWeekOf(u32, d)),
-            .DayOfWeekNameFull => try Locale.dayOfWeekFull(writer, dayOfWeekOf(u32, d)),
-            .DayOfWeekNameShort => try Locale.dayOfWeekShort(writer, dayOfWeekOf(u32, d)),
-            .DayOfWeekNameFirstLetter => try Locale.dayOfWeekFirstLetter(writer, dayOfWeekOf(u32, d)),
-            .DayOfWeekNameFirst2Letters => try Locale.dayOfWeekFirst2Letters(writer, dayOfWeekOf(u32, d)),
+            .DayOfWeekNameFull => try writeDayOfWeekNameFull(d, writer, Locale),
+            .DayOfWeekNameShort => try writeDayOfWeekNameShort(d, writer, Locale),
+            .DayOfWeekNameFirstLetter => try writeDayOfWeekNameFirstLetter(d, writer, Locale),
+            .DayOfWeekNameFirst2Letters => try writeDayOfWeekNameFirst2Letters(d, writer, Locale),
             .TimeOfDayLocale => try Locale.timeOfDay(writer, timeOf(d)),
             .TimeOfDayAM, .TimeOfDay_am, .TimeOfDay_ap, .TimeOfDay_a_m => |e| try writeTimeOfDay(d, writer, e),
             .Hour12Num => try writeHour12(d, writer, seg.str.len),
@@ -71,11 +72,55 @@ pub fn formatDate(
     }
 }
 
+fn writeDayOfWeekNameFirst2Letters(zoned_date: anytype, writer: anytype, Locale: type) !void {
+    const Date = @TypeOf(zoned_date);
+    if (comptime features.hasDayOfWeekNameFirst2Letters(Date)) {
+        try writer.writeAll(zoned_date.dayOfWeekNameFirst2Letters());
+    } else if (comptime features.hasDate(Date) and features.hasDayOfWeekNameFirst2Letters(Date.Date)) {
+        try writer.writeAll(zoned_date.date.dayOfWeekNameFull());
+    } else {
+        try Locale.dayOfWeekFirst2Letters(writer, dayOfWeekOf(u32, zoned_date));
+    }
+}
+
+fn writeDayOfWeekNameFirstLetter(zoned_date: anytype, writer: anytype, Locale: type) !void {
+    const Date = @TypeOf(zoned_date);
+    if (comptime features.hasDayOfWeekNameFirstLetter(@TypeOf(zoned_date))) {
+        try writer.writeAll(zoned_date.dayOfWeekNameFirstLetter());
+    } else if (comptime features.hasDate(Date) and features.hasDayOfWeekNameFirstLetter(Date.Date)) {
+        try writer.writeAll(zoned_date.date.dayOfWeekNameFirstLetter());
+    } else {
+        try Locale.dayOfWeekFirstLetter(writer, dayOfWeekOf(u32, zoned_date));
+    }
+}
+
+fn writeDayOfWeekNameShort(zoned_date: anytype, writer: anytype, Locale: type) !void {
+    const Date = @TypeOf(zoned_date);
+    if (comptime features.hasDayOfWeekNameShort(Date)) {
+        try writer.writeAll(zoned_date.dayOfWeekNameShort());
+    } else if (comptime features.hasDate(Date) and features.hasDayOfWeekNameShort(Date.Date)) {
+        try writer.writeAll(zoned_date.date.dayOfWeekNameShort());
+    } else {
+        try Locale.dayOfWeekShort(writer, dayOfWeekOf(u32, zoned_date));
+    }
+}
+
+fn writeDayOfWeekNameFull(zoned_date: anytype, writer: anytype, Locale: type) !void {
+    const Date = @TypeOf(zoned_date);
+    if (comptime features.hasDayOfWeekNameFull(Date)) {
+        try writer.writeAll(zoned_date.dayOfWeekNameFull());
+    } else if (comptime features.hasDate(Date) and features.hasDayOfWeekNameFull(Date.Date)) {
+        try writer.writeAll(zoned_date.date.dayOfWeekNameFull());
+    } else {
+        try Locale.dayOfWeekFull(writer, dayOfWeekOf(u32, zoned_date));
+    }
+}
+
 fn writeCalendarSystem(zoned_date: anytype, writer: anytype) !void {
     const Date = @TypeOf(zoned_date);
-    if (@hasDecl(Date, "Name")) {
+    if (comptime @hasDecl(Date, "Name")) {
         try writer.writeAll(Date.Name);
-    } else if (@hasDecl(Date, "Date") and @hasDecl(Date.Date, "Name")) {
+    } else if (comptime @hasDecl(Date, "Date") and @hasDecl(Date.Date, "Name")) {
         try writer.writeAll(Date.Date.Name);
     } else {
         try writer.writeAll("UNKNOWN");
@@ -289,12 +334,10 @@ fn writeGmtOffset(zoned_date: anytype, writer: anytype) !void {
 
 fn timezoneOf(zoned_date: anytype) zone.TimeZone {
     const Date = @TypeOf(zoned_date);
-    if (Date == unix.Timestamp or Date == unix.TimestampMs) {
+    if (comptime !features.hasZone(Date)) {
+        // Assume UTC for any non-zoned date
         return zone.UTC;
     }
-
-    comptime std.debug.assert(@hasDecl(Date, "Zone"));
-    comptime std.debug.assert(@hasField(Date, "zone"));
 
     return zoned_date.zone;
 }
@@ -405,14 +448,18 @@ fn timeOf(zoned_date: anytype) @import("../calendars/time.zig").Segments {
     const Date = @TypeOf(zoned_date);
 
     var res: @import("../calendars/time.zig").Segments = undefined;
-    if (!@hasDecl(Date, "Time")) {
-        res = convert(zoned_date, gregorian.DateTimeZoned).time;
-    } else if (Date.Time != @import("../calendars/time.zig").Segments) {
-        res = convert(zoned_date, gregorian.DateTimeZoned).time;
-    } else if (!@hasField(Date, "time")) {
-        res = convert(zoned_date, gregorian.DateTimeZoned).time;
+    if (comptime features.hasTime(Date)) {
+        if (comptime features.hasTimeSegments(Date)) {
+            res = zoned_date.time;
+        } else if (comptime features.hasTimeNanoSeconds(Date)) {
+            res = zoned_date.time.toSegments();
+        } else if (comptime features.hasTimeDayFraction(Date)) {
+            res = zoned_date.time.toSegments();
+        } else {
+            unreachable;
+        }
     } else {
-        res = zoned_date.time;
+        res = convert(zoned_date, gregorian.DateTimeZoned).time;
     }
 
     res.validate() catch unreachable;
@@ -444,38 +491,39 @@ fn writeDayOfYear(zoned_date: anytype, writer: anytype, padding: usize) !void {
 
 fn writeMonthInitial(zoned_date: anytype, writer: anytype, comptime Locale: type) !void {
     const Date = @TypeOf(zoned_date);
-    const month = monthOf(u32, zoned_date);
 
-    if (comptime std.meta.hasFn(Date, "monthFirstLetter")) {
-        try writer.writeAll(Date.monthFirstLetter(month));
-        return;
+    if (comptime features.hasMonthNameFirstLetter(Date)) {
+        try writer.writeAll(zoned_date.monthNameFirstLetter());
+    } else if (comptime features.hasDate(Date) and features.hasMonthNameFirstLetter(Date.Date)) {
+        try writer.writeAll(zoned_date.date.monthNameFirstLetter());
+    } else {
+        try Locale.monthNameFirstLetter(writer, monthOf(u32, zoned_date));
     }
-
-    try Locale.monthFirstLetter(writer, month);
 }
 
 fn writeMonthLong(zoned_date: anytype, writer: anytype, comptime Locale: type) !void {
     const Date = @TypeOf(zoned_date);
-    const month = monthOf(u32, zoned_date);
 
-    if (comptime std.meta.hasFn(Date, "monthLong")) {
-        try writer.writeAll(Date.monthLong(month));
-        return;
+    if (comptime features.hasMonthNameLong(Date)) {
+        try writer.writeAll(zoned_date.monthNameLong());
+    } else if (comptime features.hasDate(Date) and features.hasMonthNameLong(Date.Date)) {
+        try writer.writeAll(zoned_date.date.monthNameLong());
+    } else {
+        try Locale.monthNameLong(writer, monthOf(u32, zoned_date));
     }
-
-    try Locale.monthLong(writer, month);
 }
 
 fn writeMonthShort(zoned_date: anytype, writer: anytype, comptime Locale: type) !void {
     const Date = @TypeOf(zoned_date);
     const month = monthOf(u32, zoned_date);
 
-    if (comptime std.meta.hasFn(Date, "monthShort")) {
-        try writer.writeAll(Date.monthShort(month));
-        return;
+    if (comptime features.hasMonthNameShort(Date)) {
+        try writer.writeAll(zoned_date.monthNameShort());
+    } else if (comptime features.hasDate(Date) and features.hasMonthNameShort(Date.Date)) {
+        try writer.writeAll(zoned_date.date.monthNameShort());
+    } else {
+        try Locale.monthNameShort(writer, month);
     }
-
-    try Locale.monthShort(writer, month);
 }
 
 fn writeQuarterNum(zoned_date: anytype, writer: anytype, padding: usize) !void {
@@ -585,21 +633,24 @@ fn writeMonthDay(zoned_date: anytype, writer: anytype, padding: usize) !void {
 fn dayOfYearOf(comptime Out: type, zoned_date: anytype) Out {
     comptime std.debug.assert(Out == i32 or Out == u32);
     const Date = @TypeOf(zoned_date);
-    if (Date == unix.Timestamp or Date == unix.TimestampMs) {
+    if (comptime features.isUnixTimestamp(Date)) {
         return dayOfYearOf(Out, convert(zoned_date, gregorian.DateTimeZoned));
     }
 
-    comptime std.debug.assert(@hasDecl(Date, "Date"));
-    comptime std.debug.assert(@hasField(Date, "date"));
+    comptime std.debug.assert(features.hasDate(Date));
 
     var day: Out = undefined;
     const toOut = if (comptime Out == u32) toU32 else toI32;
-    if (std.meta.hasMethod(Date, "dayNumber")) {
-        day = toOut(zoned_date.date.dayNumber());
-    } else if (@hasField(Date, "day_number")) {
-        day = toOut(zoned_date.date.day_number);
+    if (std.meta.hasMethod(Date, "dayInYear")) {
+        day = toOut(zoned_date.dayInYear());
+    } else if (@hasField(Date, "day_in_year")) {
+        day = toOut(zoned_date.day_in_year);
+    } else if (std.meta.hasMethod(Date.Date, "dayInYear")) {
+        day = toOut(zoned_date.date.dayInYear());
+    } else if (@hasField(Date.Date, "day_in_year")) {
+        day = toOut(zoned_date.date.day_in_year);
     } else {
-        day = toOut(convert(zoned_date, gregorian.Date).dayNumber());
+        day = toOut(convert(zoned_date, gregorian.Date).dayInYear());
     }
     return day;
 }
@@ -607,18 +658,21 @@ fn dayOfYearOf(comptime Out: type, zoned_date: anytype) Out {
 fn dayOfMonthOf(comptime Out: type, zoned_date: anytype) Out {
     comptime std.debug.assert(Out == i32 or Out == u32);
     const Date = @TypeOf(zoned_date);
-    if (Date == unix.Timestamp or Date == unix.TimestampMs) {
+    if (comptime features.isUnixTimestamp(Date)) {
         return dayOfMonthOf(Out, convert(zoned_date, gregorian.DateTimeZoned));
     }
 
-    comptime std.debug.assert(@hasDecl(Date, "Date"));
-    comptime std.debug.assert(@hasField(Date, "date"));
+    comptime std.debug.assert(features.hasDate(Date));
 
     var month: Out = undefined;
     const toOut = if (comptime Out == u32) toU32 else toI32;
     if (std.meta.hasMethod(Date, "day")) {
-        month = toOut(zoned_date.date.day());
+        month = toOut(zoned_date.day());
     } else if (@hasField(Date, "day")) {
+        month = toOut(zoned_date.day);
+    } else if (std.meta.hasMethod(Date.Date, "day")) {
+        month = toOut(zoned_date.date.day());
+    } else if (@hasField(Date.Date, "day")) {
         month = toOut(zoned_date.date.day);
     } else {
         month = toOut(convert(zoned_date, gregorian.Date).day);
@@ -629,30 +683,24 @@ fn dayOfMonthOf(comptime Out: type, zoned_date: anytype) Out {
 fn quarterOf(comptime Out: type, zoned_date: anytype) Out {
     comptime std.debug.assert(Out == i32 or Out == u32);
     const Date = @TypeOf(zoned_date);
-    if (Date == unix.Timestamp or Date == unix.TimestampMs) {
+    if (comptime features.isUnixTimestamp(Date)) {
         return quarterOf(Out, convert(zoned_date, gregorian.DateTimeZoned));
     }
 
-    comptime std.debug.assert(@hasDecl(Date, "Date"));
-    comptime std.debug.assert(@hasField(Date, "date"));
+    comptime std.debug.assert(features.hasDate(Date));
 
     var quarter: Out = undefined;
     const toOut = if (comptime Out == u32) toU32 else toI32;
     if (std.meta.hasMethod(Date, "quarter")) {
-        quarter = toOut(zoned_date.date.quarter());
+        quarter = toOut(zoned_date.quarter());
     } else if (@hasField(Date, "quarter")) {
+        quarter = toOut(zoned_date.quarter);
+    } else if (std.meta.hasMethod(Date.Date, "quarter")) {
+        quarter = toOut(zoned_date.date.quarter());
+    } else if (@hasField(Date.Date, "quarter")) {
         quarter = toOut(zoned_date.date.quarter);
     } else {
-        const month = toOut(convert(zoned_date, gregorian.Date).month);
-        if (month <= 3) {
-            quarter = 1;
-        } else if (month <= 6) {
-            quarter = 2;
-        } else if (month <= 9) {
-            quarter = 3;
-        } else {
-            quarter = 4;
-        }
+        quarter = toOut(convert(zoned_date, gregorian.DateTimeZoned).date.quarter());
     }
     return quarter;
 }
@@ -660,18 +708,21 @@ fn quarterOf(comptime Out: type, zoned_date: anytype) Out {
 fn monthOf(comptime Out: type, zoned_date: anytype) Out {
     comptime std.debug.assert(Out == i32 or Out == u32);
     const Date = @TypeOf(zoned_date);
-    if (Date == unix.Timestamp or Date == unix.TimestampMs) {
+    if (comptime features.isUnixTimestamp(Date)) {
         return monthOf(Out, convert(zoned_date, gregorian.DateTimeZoned));
     }
 
-    comptime std.debug.assert(@hasDecl(Date, "Date"));
-    comptime std.debug.assert(@hasField(Date, "date"));
+    comptime std.debug.assert(features.hasDate(Date));
 
     var month: Out = undefined;
     const toOut = if (comptime Out == u32) toU32 else toI32;
     if (std.meta.hasMethod(Date, "month")) {
-        month = toOut(zoned_date.date.month());
+        month = toOut(zoned_date.month());
     } else if (@hasField(Date, "month")) {
+        month = toOut(zoned_date.month);
+    } else if (std.meta.hasMethod(Date.Date, "month")) {
+        month = toOut(zoned_date.date.month());
+    } else if (@hasField(Date.Date, "month")) {
         month = toOut(zoned_date.date.month);
     } else {
         month = toOut(convert(zoned_date, gregorian.Date).month);
@@ -682,18 +733,21 @@ fn monthOf(comptime Out: type, zoned_date: anytype) Out {
 fn dayOfWeekOf(comptime Out: type, zoned_date: anytype) Out {
     comptime std.debug.assert(Out == i32 or Out == u32);
     const Date = @TypeOf(zoned_date);
-    if (Date == unix.Timestamp or Date == unix.TimestampMs) {
+    if (comptime features.isUnixTimestamp(Date)) {
         return dayOfWeekOf(Out, convert(zoned_date, gregorian.DateTimeZoned));
     }
 
-    comptime std.debug.assert(@hasDecl(Date, "Date"));
-    comptime std.debug.assert(@hasField(Date, "date"));
+    comptime std.debug.assert(features.hasDate(Date));
 
     var week_day: Out = undefined;
     const toOut = if (comptime Out == u32) toU32 else toI32;
     if (std.meta.hasMethod(Date, "dayOfWeek")) {
+        week_day = toOut(zoned_date.dayOfWeek()) + 1;
+    } else if (@hasField(Date, "day_of_week")) {
+        week_day = toOut(zoned_date.dayOfWeek) + 1;
+    } else if (std.meta.hasMethod(Date.Date, "dayOfWeek")) {
         week_day = toOut(zoned_date.date.dayOfWeek()) + 1;
-    } else if (@hasField(Date, "dayOfWeek")) {
+    } else if (@hasField(Date.Date, "day_of_week")) {
         week_day = toOut(zoned_date.date.dayOfWeek) + 1;
     } else {
         const c = convert(zoned_date, gregorian.DateTimeZoned);
@@ -705,18 +759,21 @@ fn dayOfWeekOf(comptime Out: type, zoned_date: anytype) Out {
 fn weekOf(comptime Out: type, zoned_date: anytype) Out {
     comptime std.debug.assert(Out == i32 or Out == u32);
     const Date = @TypeOf(zoned_date);
-    if (Date == unix.Timestamp or Date == unix.TimestampMs) {
+    if (comptime features.isUnixTimestamp(Date)) {
         return weekOf(Out, convert(zoned_date, iso.DateTimeZoned));
     }
 
-    comptime std.debug.assert(@hasDecl(Date, "Date"));
-    comptime std.debug.assert(@hasField(Date, "date"));
+    comptime std.debug.assert(features.hasDate(Date));
 
     var week: Out = undefined;
     const toOut = if (comptime Out == u32) toU32 else toI32;
     if (std.meta.hasMethod(Date, "week")) {
-        week = toOut(zoned_date.date.week());
+        week = toOut(zoned_date.week());
     } else if (@hasField(Date, "week")) {
+        week = toOut(zoned_date.week);
+    } else if (std.meta.hasMethod(Date.Date, "week")) {
+        week = toOut(zoned_date.date.week());
+    } else if (@hasField(Date.Date, "week")) {
         week = toOut(zoned_date.date.week);
     } else {
         week = toOut(convert(zoned_date, iso.Date).week);
@@ -727,18 +784,21 @@ fn weekOf(comptime Out: type, zoned_date: anytype) Out {
 fn yearOf(comptime Out: type, zoned_date: anytype) Out {
     comptime std.debug.assert(Out == i32 or Out == u32);
     const Date = @TypeOf(zoned_date);
-    if (Date == unix.Timestamp or Date == unix.TimestampMs) {
+    if (comptime features.isUnixTimestamp(Date)) {
         return yearOf(Out, convert(zoned_date, gregorian.DateTimeZoned));
     }
 
-    comptime std.debug.assert(@hasDecl(Date, "Date"));
-    comptime std.debug.assert(@hasField(Date, "date"));
+    comptime std.debug.assert(features.hasDate(Date));
 
     var year: Out = undefined;
     const toOut = if (comptime Out == u32) toU32 else toI32;
     if (std.meta.hasMethod(Date, "year")) {
-        year = toOut(zoned_date.date.year());
+        year = toOut(zoned_date.year());
     } else if (@hasField(Date, "year")) {
+        year = toOut(zoned_date.year);
+    } else if (std.meta.hasMethod(Date.Date, "year")) {
+        year = toOut(zoned_date.date.year());
+    } else if (@hasField(Date.Date, "year")) {
         year = toOut(zoned_date.date.year);
     } else {
         year = toOut(convert(zoned_date, gregorian.Date).year);
@@ -889,7 +949,7 @@ test "formatting Gregorian/Unix A.D." {
     var fbs = std.io.fixedBufferStream(&out);
     const parseFormatStr = @import("../formatting.zig").parseFormatStr;
     const Gregorian = @import("../calendars.zig").gregorian.DateTimeZoned;
-    const Unix = @import("../calendars.zig").unix.Timestamp;
+    const Unix = unix.Timestamp;
     const Locale = @import("l10n.zig").EnUsLocale;
 
     const date = try Gregorian.init(

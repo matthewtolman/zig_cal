@@ -259,9 +259,30 @@ pub const Date = struct {
         return fixed.Date{ .day = sum };
     }
 
+    /// Returns the quarter the year is in (between 1-4 inclusive)
+    pub fn quarter(self: Date) u32 {
+        const month: u32 = @intFromEnum(self.month);
+        if (month <= 3) {
+            return 1;
+        } else if (month <= 6) {
+            return 2;
+        } else if (month <= 9) {
+            return 3;
+        } else {
+            return 4;
+        }
+    }
+
     /// Checks whether the gregorian date is a leap year or not
     pub fn isLeapYear(self: Date) bool {
         return leapYear(self.year);
+    }
+
+    /// Returns the week in the year based on the ISO calendar
+    pub fn week(self: Date) u8 {
+        const iso = @import("iso.zig");
+        const i = iso.Date.fromFixedDate(self.toFixedDate());
+        return i.week;
     }
 
     /// Formats Gregorian Calendar into string form
@@ -340,7 +361,7 @@ pub const Date = struct {
     }
 
     /// Gets the day number of the day in the current year (1-366)
-    pub fn dayNumber(self: Date) i32 {
+    pub fn dayInYear(self: Date) i32 {
         const date = self.nearestValid();
         const prevYearInt = @intFromEnum(date.year) - 1;
         const prevYear: AstronomicalYear = @enumFromInt(prevYearInt);
@@ -392,12 +413,12 @@ test "days in year" {
     for (testCases) |testCase| {
         const expected: i32 = if (testCase.isLeapYear()) 366 else 365;
         try testing.expectEqual(
-            testCase.dayNumber() + testCase.daysRemaining(),
+            testCase.dayInYear() + testCase.daysRemaining(),
             expected,
         );
 
-        const mismatched = testCase.dayNumber() != testCase.daysRemaining();
-        const midPoint = expected == 366 and testCase.dayNumber() == 366 / 2;
+        const mismatched = testCase.dayInYear() != testCase.daysRemaining();
+        const midPoint = expected == 366 and testCase.dayInYear() == 366 / 2;
         try testing.expect(mismatched or midPoint);
     }
 }
@@ -791,4 +812,22 @@ test "datetimezone nearest valid" {
     try std.testing.expectEqual(6, dt2.time.hour);
     try std.testing.expectEqual(2, dt2.time.minute);
     try std.testing.expectEqual(0, dt2.time.second);
+}
+
+test "gregorian grade" {
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDate(Date);
+    try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
+}
+
+test "gregorian datetime grade" {
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDateTime(DateTime);
+    try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
+}
+
+test "gregorian datetimezoned grade" {
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDateTimeZoned(DateTimeZoned);
+    try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
 }

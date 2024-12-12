@@ -310,6 +310,20 @@ pub fn CalendarDateTime(comptime Cal: type) type {
         /// Finds the first date on or after the current date that occurs on the
         /// target day of the week
         /// (from book, same as k_day_on_or_after)
+        pub fn dayOfWeekAfter(self: @This(), k: DayOfWeek) @This() {
+            if (comptime std.meta.hasFn(Cal, "dayOfWeekAfter")) {
+                return .{
+                    .date = self.date.dayOfWeekAfter(k),
+                    .time = self.time,
+                };
+            } else {
+                return self.toFixedDateTime().dayOfWeekAfter(k);
+            }
+        }
+
+        /// Finds the first date on or after the current date that occurs on the
+        /// target day of the week
+        /// (from book, same as k_day_on_or_after)
         pub fn dayOfWeekOnOrAfter(self: @This(), k: DayOfWeek) @This() {
             if (comptime std.meta.hasFn(Cal, "dayOfWeekOnOrAfter")) {
                 return .{
@@ -547,7 +561,7 @@ pub fn CalendarDateTimeZoned(Cal: type) type {
         /// Finds the first date after the current date that occurs on the target
         /// day of the week
         /// (from book, same as k_day_after)
-        pub fn dayOfWeekAfer(self: @This(), k: DayOfWeek) @This() {
+        pub fn dayOfWeekAfter(self: @This(), k: DayOfWeek) @This() {
             if (comptime std.meta.hasFn(Cal, "dayOfWeekAfer")) {
                 return .{
                     .date = self.date.dayOfWeekAfter(k),

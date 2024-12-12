@@ -114,6 +114,18 @@ pub const Date = struct {
         return @This().fromFixedDate(fd);
     }
 
+    pub fn month(self: @This()) gregorian.Month {
+        return gregorian.fromFixedDate(self.toFixedDate()).month;
+    }
+
+    pub fn dayInYear(self: @This()) gregorian.Month {
+        return gregorian.fromFixedDate(self.toFixedDate()).dayInYear();
+    }
+
+    pub fn quarter(self: @This()) u32 {
+        return gregorian.fromFixedDate(self.toFixedDate()).quarter();
+    }
+
     pub usingnamespace wrappers.CalendarCompare(@This());
     pub usingnamespace wrappers.CalendarDayDiff(@This());
     pub usingnamespace wrappers.CalendarIsValid(@This());
@@ -331,4 +343,22 @@ test "iso formatting" {
         try list.writer().print("{}", .{testCase.date});
         try testing.expectEqualStrings(testCase.expected, list.items);
     }
+}
+
+test "iso date grade" {
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDate(Date);
+    try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
+}
+
+test "iso datetime grade" {
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDateTime(DateTime);
+    try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
+}
+
+test "iso datetimezoned grade" {
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDateTimeZoned(DateTimeZoned);
+    try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
 }

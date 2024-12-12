@@ -85,6 +85,20 @@ pub const Date = struct {
         };
     }
 
+    /// Returns the quarter the year is in (between 1-4 inclusive)
+    pub fn quarter(self: Date) u32 {
+        const month: u32 = @intFromEnum(self.month);
+        if (month <= 3) {
+            return 1;
+        } else if (month <= 6) {
+            return 2;
+        } else if (month <= 9) {
+            return 3;
+        } else {
+            return 4;
+        }
+    }
+
     /// Converts from a fixed date
     pub fn fromFixedDate(d: fixed.Date) Date {
         const approx = @divFloor(4 * d.subDays(epochs.julian).day + 1464, 1461);
@@ -206,6 +220,19 @@ pub const Date = struct {
 
     pub fn fromFixed(fd: fixed.Date) @This() {
         return @This().fromFixedDate(fd);
+    }
+
+    /// Gets the day number of the day in the current year (1-366)
+    pub fn dayInYear(self: Date) i32 {
+        const date = self.nearestValid();
+        const prevYearInt = @intFromEnum(core.adToAstro(date.year)) - 1;
+        const prevYearAstro: core.AstronomicalYear = @enumFromInt(prevYearInt);
+        const prevYear = core.astroToAD(prevYearAstro);
+        const end = @This(){ .year = prevYear, .day = 31, .month = .December };
+        const res = date.dayDifference(end);
+        assert(res >= 1);
+        assert(if (date.isLeapYear()) res <= 366 else res <= 365);
+        return res;
     }
 
     pub fn week(self: @This()) u32 {
@@ -404,6 +431,9 @@ test "julian leap year" {
 /// Represents a julian date and time combination
 pub const DateTime = wrappers.CalendarDateTime(Date);
 
+/// Represents a zoned julian date and time combination
+pub const DateTimeZoned = wrappers.CalendarDateTimeZoned(Date);
+
 test "date time" {
     const dt1 = try DateTime.init(
         try Date.initNums(2022, 2, 15),
@@ -470,4 +500,22 @@ test "dayOfWeek" {
     try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
     dt = start.subDays(7);
     try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
+}
+
+test "julian grade" {
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDate(Date);
+    try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
+}
+
+test "julian datetime grade" {
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDateTime(DateTime);
+    try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
+}
+
+test "julian datetimezoned grade" {
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDateTimeZoned(DateTimeZoned);
+    try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
 }

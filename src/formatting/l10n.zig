@@ -2,6 +2,7 @@ const Gregorian = @import("../calendars.zig").gregorian.DateTimeZoned;
 const Wrapper = @import("../calendars/wrappers.zig");
 const std = @import("std");
 const TimeSegments = @import("../calendars/time.zig").Segments;
+const features = @import("../utils/features.zig");
 
 pub const SegmentLen = enum {
     Shortest,
@@ -17,8 +18,7 @@ pub const DateFormatError = error{
 };
 
 pub fn ZonedDateTimeOf(comptime Cal: type) type {
-    const unix = @import("../calendars.zig").unix;
-    if (Cal == unix.Timestamp or Cal == unix.TimestampMs) {
+    if (comptime features.isUnixTimestamp(Cal)) {
         return Cal;
     }
     const wrappers = @import("../calendars/wrappers.zig");
@@ -57,9 +57,9 @@ pub fn assertValidLocale(Locale: type) void {
     comptime std.debug.assert(std.meta.hasFn(Locale, "quarterShort"));
     comptime std.debug.assert(std.meta.hasFn(Locale, "quarterLong"));
 
-    comptime std.debug.assert(std.meta.hasFn(Locale, "monthShort"));
-    comptime std.debug.assert(std.meta.hasFn(Locale, "monthLong"));
-    comptime std.debug.assert(std.meta.hasFn(Locale, "monthFirstLetter"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "monthNameShort"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "monthNameLong"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "monthNameFirstLetter"));
 
     comptime std.debug.assert(std.meta.hasFn(Locale, "dayOfWeekShort"));
     comptime std.debug.assert(std.meta.hasFn(Locale, "dayOfWeekFull"));
@@ -134,7 +134,6 @@ pub const EnUsLocale = struct {
             6 => try writer.writeAll("Friday"),
             7 => try writer.writeAll("Saturday"),
             else => {
-                std.debug.print("UNKNOWN: {d}\n", .{day_of_week});
                 try writer.writeAll("Unknown");
             },
         }
@@ -153,7 +152,7 @@ pub const EnUsLocale = struct {
         }
     }
 
-    pub fn monthShort(writer: anytype, month: u32) !void {
+    pub fn monthNameShort(writer: anytype, month: u32) !void {
         switch (month) {
             1 => try writer.writeAll("Jan"),
             2 => try writer.writeAll("Feb"),
@@ -171,7 +170,7 @@ pub const EnUsLocale = struct {
         }
     }
 
-    pub fn monthLong(writer: anytype, month: u32) !void {
+    pub fn monthNameLong(writer: anytype, month: u32) !void {
         switch (month) {
             1 => try writer.writeAll("January"),
             2 => try writer.writeAll("February"),
@@ -189,7 +188,7 @@ pub const EnUsLocale = struct {
         }
     }
 
-    pub fn monthFirstLetter(writer: anytype, month: u32) !void {
+    pub fn monthNameFirstLetter(writer: anytype, month: u32) !void {
         switch (month) {
             1 => try writer.writeAll("J"),
             2 => try writer.writeAll("F"),

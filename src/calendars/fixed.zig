@@ -37,6 +37,7 @@ const math = @import("../utils.zig").math;
 //      C and C++ APIs: https://gitlab.com/mtolman/calendars
 //      C++ constexpr: https://gitlab.com/mtolman/calendar-constexpr
 pub const Date = struct {
+    pub const Name = "FixedDate";
     day: i32,
 
     /// Compares two dates to see which is larger
@@ -673,4 +674,13 @@ test "timezone roll forward" {
     try std.testing.expectEqual(28, time_z2_safe.time.second);
 
     try std.testing.expectEqualDeep(time_utc_safe, time_z2_safe.toUtc());
+}
+
+test "fixed grade" {
+    const std = @import("std");
+    const features = @import("../utils/features.zig");
+    const grade = features.gradeDate(Date);
+    // Fixed dates are going to be incomplete since they are targetted as an
+    // internal conversion target rather than a usable calendar
+    try std.testing.expectEqual(features.CalendarRating.Incomplete, grade.rating);
 }

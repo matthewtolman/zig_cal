@@ -425,3 +425,13 @@ test "unix ms formatting" {
         try testing.expectEqualStrings(testCase.expected, list.items);
     }
 }
+
+test "unix feature detection" {
+    const features = @import("../utils/features.zig");
+
+    try std.testing.expect(features.isUnixTimestampSeconds(Timestamp));
+    try std.testing.expect(features.isUnixTimestamp(Timestamp));
+
+    try std.testing.expect(features.isUnixTimestampMilliSeconds(TimestampMs));
+    try std.testing.expect(features.isUnixTimestamp(TimestampMs));
+}

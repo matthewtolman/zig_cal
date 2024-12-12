@@ -1,4 +1,5 @@
 pub const calendars = @import("calendars.zig");
+pub const time = calendars.time;
 pub const utils = @import("utils.zig");
 pub const zone = @import("calendars/zone.zig");
 
@@ -25,6 +26,7 @@ test "utils" {
         try calendars.gregorian.Date.initNums(2024, 4, 4),
         calendars.iso.Date,
     );
+    _ = utils.features.featureSet(calendars.gregorian);
 }
 
 test "formatting" {
