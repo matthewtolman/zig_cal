@@ -882,16 +882,38 @@ pub fn hasDayDifference(comptime Cal: type) bool {
     return comptime std.meta.hasFn(Cal, "dayDifference");
 }
 
+/// Gets the type of year on a calendar
+pub fn YearType(comptime Calendar: type) type {
+    if (!comptime hasYear(Calendar)) return void;
+
+    if (comptime @hasField(Calendar, "year")) {
+        return @TypeOf((Calendar{}).year);
+    } else {
+        return @TypeOf((Calendar{}).year());
+    }
+}
+
+/// Gets the year from a calendar (must pass feature hasYear)
+pub fn yearFor(calendar: anytype) YearType(@TypeOf(calendar)) {
+    const Calendar = @TypeOf(calendar);
+    comptime std.debug.assert(hasYear(Calendar));
+    if (comptime @hasField(Calendar, "year")) {
+        return calendar.year;
+    } else {
+        return calendar.year();
+    }
+}
+
 /// Checks if there is a annoDominiYear method
 pub fn hasAnnoDominiYear(comptime Calendar: type) bool {
     if (!comptime hasYear(Calendar)) return false;
-    return @TypeOf((Calendar{}).year) == core.AnnoDominiYear;
+    return YearType(Calendar) == core.AnnoDominiYear;
 }
 
 /// Checks if there is a astronomicalYear method
 pub fn hasAstronomicalYear(comptime Calendar: type) bool {
     if (!comptime hasYear(Calendar)) return false;
-    return @TypeOf((Calendar{}).year) == core.AstronomicalYear;
+    return YearType(Calendar) == core.AstronomicalYear;
 }
 
 /// Checks if there is a Name constant

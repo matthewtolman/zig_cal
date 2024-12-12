@@ -2,6 +2,7 @@ pub const calendars = @import("calendars.zig");
 pub const time = calendars.time;
 pub const utils = @import("utils.zig");
 pub const zone = @import("calendars/zone.zig");
+pub const holidays = @import("holidays.zig");
 
 // Due to how "pub const ... = @import(...)" works, we do need to dereference
 // the code in order to get the test cases to actually run with zig build test
@@ -31,4 +32,10 @@ test "utils" {
 
 test "formatting" {
     _ = @import("formatting.zig");
+}
+
+test "holidays" {
+    _ = holidays.usa;
+    _ = holidays.christian;
+    _ = holidays.eastern_orthodox;
 }

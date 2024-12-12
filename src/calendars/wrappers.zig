@@ -78,43 +78,43 @@ pub fn CalendarNthDays(comptime Cal: type) type {
         /// day of the week
         /// (from book, same as k_day_before)
         pub fn dayOfWeekBefore(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.AsFixed().dayOfWeekBefore(k));
+            return Cal.fromFixed(self.asFixed().dayOfWeekBefore(k));
         }
 
         /// Finds the first date after the current date that occurs on the target
         /// day of the week
         /// (from book, same as k_day_after)
         pub fn dayOfWeekAfter(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.AsFixed().dayOfWeekAfter(k));
+            return Cal.fromFixed(self.asFixed().dayOfWeekAfter(k));
         }
 
         /// Finds the first date nearest th current date that occurs on the target
         /// day of the week
         /// (from book, same as k_day_neareast)
         pub fn dayOfWeekNearest(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.AsFixed().dayOfWeekNearest(k));
+            return Cal.fromFixed(self.asFixed().dayOfWeekNearest(k));
         }
 
         /// Finds the first date on or before the current date that occurs on the
         /// target day of the week
         /// (from book, same as k_day_on_or_before)
         pub fn dayOfWeekOnOrBefore(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.AsFixed().dayOfWeekOnOrBefore(k));
+            return Cal.fromFixed(self.asFixed().dayOfWeekOnOrBefore(k));
         }
 
         /// Finds the first date on or after the current date that occurs on the
         /// target day of the week
         /// (from book, same as k_day_on_or_after)
         pub fn dayOfWeekOnOrAfter(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.AsFixed().dayOfWeekOnOrAfter(k));
+            return Cal.fromFixed(self.asFixed().dayOfWeekOnOrAfter(k));
         }
 
         pub fn firstWeekDay(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.AsFixed().firstWeekDay(k));
+            return Cal.fromFixed(self.asFixed().firstWeekDay(k));
         }
 
         pub fn lastWeekDay(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.AsFixed().lastWeekDay(k));
+            return Cal.fromFixed(self.asFixed().lastWeekDay(k));
         }
     };
 }

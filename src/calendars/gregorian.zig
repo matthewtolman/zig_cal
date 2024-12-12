@@ -570,8 +570,8 @@ test "gregorian formatting" {
 }
 
 test "gregorian leap year" {
-    const adToAstro = @import("./core.zig").adToAstro;
-    const AnnoDominiYear = @import("./core.zig").AnnoDominiYear;
+    const adToAstro = @import("core.zig").adToAstro;
+    const AnnoDominiYear = @import("core.zig").AnnoDominiYear;
     try testing.expect(
         (Date{
             .year = @as(AstronomicalYear, @enumFromInt(0)),

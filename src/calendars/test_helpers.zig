@@ -1,4 +1,4 @@
-const fixed = @import("./fixed.zig");
+const fixed = @import("fixed.zig");
 
 pub const sample_dates = [_]fixed.Date{
     fixed.Date{ .day = -214193 },
