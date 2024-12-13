@@ -2,10 +2,6 @@ const gregorian = @import("../calendars.zig").gregorian;
 const AstronomicalYear = @import("../calendars.zig").AstronomicalYear;
 const std = @import("std");
 
-pub const alabama = @import("usa/alabama.zig");
-pub const alaska = @import("usa/alaska.zig");
-pub const utah = @import("usa/utah.zig");
-
 pub fn independenceDay(year: AstronomicalYear) gregorian.Date {
     return gregorian.Date.init(year, .July, 4) catch unreachable;
 }
@@ -47,6 +43,14 @@ pub fn presidentsDay(year: AstronomicalYear) gregorian.Date {
     return base.nthWeekDay(3, .Monday);
 }
 
+pub fn cesarChavezDay(year: AstronomicalYear) gregorian.Date {
+    return gregorian.Date.init(year, .March, 31) catch unreachable;
+}
+
+pub fn georgeWashingtonBirthday(year: AstronomicalYear) gregorian.Date {
+    return presidentsDay(year);
+}
+
 pub fn juneteenth(year: AstronomicalYear) gregorian.Date {
     return gregorian.Date.init(year, .June, 19) catch unreachable;
 }
@@ -79,6 +83,110 @@ pub fn christmas(year: AstronomicalYear) gregorian.Date {
 
 pub fn christmasEve(year: AstronomicalYear) gregorian.Date {
     return @import("christian.zig").christmasEve(year);
+}
+
+const alabama = @import("usa/alabama.zig");
+const alaska = @import("usa/alaska.zig");
+const arizona = @import("usa/arizona.zig");
+const arkansas = @import("usa/arkansas.zig");
+const california = @import("usa/california.zig");
+const colorado = @import("usa/colorado.zig");
+const connecticut = @import("usa/connecticut.zig");
+const delaware = @import("usa/delaware.zig");
+const florida = @import("usa/florida.zig");
+const georgia = @import("usa/georgia.zig");
+const hawaii = @import("usa/hawaii.zig");
+const idaho = @import("usa/idaho.zig");
+const illinois = @import("usa/illinois.zig");
+const indiana = @import("usa/indiana.zig");
+const iowa = @import("usa/iowa.zig");
+const kansas = @import("usa/kansas.zig");
+const kentucky = @import("usa/kentucky.zig");
+const louisiana = @import("usa/louisiana.zig");
+const maine = @import("usa/maine.zig");
+const maryland = @import("usa/maryland.zig");
+const massachusetts = @import("usa/massachusetts.zig");
+const michigan = @import("usa/michigan.zig");
+const minnesota = @import("usa/minnesota.zig");
+const mississippi = @import("usa/mississippi.zig");
+const missouri = @import("usa/missouri.zig");
+const montana = @import("usa/montana.zig");
+const nebraska = @import("usa/nebraska.zig");
+const nevada = @import("usa/nevada.zig");
+const new_hampshire = @import("usa/new_hampshire.zig");
+const new_jersey = @import("usa/new_jersey.zig");
+const new_mexico = @import("usa/new_mexico.zig");
+const new_york = @import("usa/new_york.zig");
+const north_carolina = @import("usa/north_carolina.zig");
+const north_dakota = @import("usa/north_dakota.zig");
+const ohio = @import("usa/ohio.zig");
+const oklahoma = @import("usa/oklahoma.zig");
+const oregon = @import("usa/oregon.zig");
+const pennsylvania = @import("usa/pennsylvania.zig");
+const rhode_island = @import("usa/rhode_island.zig");
+const south_carolina = @import("usa/south_carolina.zig");
+const south_dakota = @import("usa/south_dakota.zig");
+const tennessee = @import("usa/tennessee.zig");
+const texas = @import("usa/texas.zig");
+const utah = @import("usa/utah.zig");
+const vermont = @import("usa/vermont.zig");
+const virginia = @import("usa/virginia.zig");
+const washington = @import("usa/washington.zig");
+const west_virginia = @import("usa/west_virginia.zig");
+const wisconsin = @import("usa/wisconsin.zig");
+const wyoming = @import("usa/wyoming.zig");
+
+test "states" {
+    _ = wyoming;
+    _ = wisconsin;
+    _ = west_virginia;
+    _ = washington;
+    _ = virginia;
+    _ = vermont;
+    _ = utah;
+    _ = texas;
+    _ = tennessee;
+    _ = south_dakota;
+    _ = south_carolina;
+    _ = rhode_island;
+    _ = pennsylvania;
+    _ = oregon;
+    _ = oklahoma;
+    _ = ohio;
+    _ = north_dakota;
+    _ = north_carolina;
+    _ = new_york;
+    _ = new_mexico;
+    _ = new_jersey;
+    _ = new_hampshire;
+    _ = nevada;
+    _ = nebraska;
+    _ = montana;
+    _ = missouri;
+    _ = mississippi;
+    _ = minnesota;
+    _ = michigan;
+    _ = massachusetts;
+    _ = maryland;
+    _ = maine;
+    _ = louisiana;
+    _ = kentucky;
+    _ = kansas;
+    _ = iowa;
+    _ = indiana;
+    _ = illinois;
+    _ = idaho;
+    _ = hawaii;
+    _ = georgia;
+    _ = florida;
+    _ = delaware;
+    _ = connecticut;
+    _ = colorado;
+    _ = california;
+    _ = arkansas;
+    _ = arizona;
+    _ = alaska;
+    _ = alabama;
 }
 
 test "Independence Day" {
@@ -335,10 +443,4 @@ test "sample data" {
         const year: AstronomicalYear = @enumFromInt(y);
         try std.testing.expectEqualDeep(try gregorian.Date.init(year, .May, day), memorialDay(year));
     }
-}
-
-test "states" {
-    _ = alabama;
-    _ = alaska;
-    _ = utah;
 }

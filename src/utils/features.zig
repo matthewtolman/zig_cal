@@ -150,6 +150,10 @@ pub const Features = enum {
     /// RECOMENDED when not compatible with Gregorian Date
     HasQuarter,
 
+    /// Indicates that calendar is an approximation
+    /// and that the actual dates may vary based on external factors
+    IsApproximate,
+
     // Special Handling
 
     /// Type is a unix timestamp
@@ -231,6 +235,8 @@ pub fn featureSet(comptime Calendar: type) FeatureSet {
 
     if (isUnixTimestampSeconds(Calendar)) set.insert(Features.UnixSeconds);
     if (isUnixTimestampMilliSeconds(Calendar)) set.insert(Features.UnixMilliSeconds);
+
+    if (isApproximate(Calendar)) set.insert(Features.IsApproximate);
 
     return set;
 }
@@ -880,6 +886,15 @@ pub fn hasAddDays(comptime Cal: type) bool {
 /// Checks if there is a dayDifference method
 pub fn hasDayDifference(comptime Cal: type) bool {
     return comptime std.meta.hasFn(Cal, "dayDifference");
+}
+
+/// Checks if a calendar is approximate
+pub fn isApproximate(comptime Cal: type) bool {
+    if (comptime @hasField(Cal, "year")) {
+        return Cal.Approximate;
+    } else {
+        return false;
+    }
 }
 
 /// Gets the type of year on a calendar
