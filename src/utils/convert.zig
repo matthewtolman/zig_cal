@@ -66,6 +66,56 @@ pub fn convert(date_in: anytype, comptime Target: type) Target {
         } else {
             unreachable;
         }
+    } else if (From == fixed.Date) {
+        if (comptime meta.hasMethod(Target, "fromFixedDateTimeZoned")) {
+            const dtz = fixed.DateTimeZoned{
+                .date = date_in,
+                .time = (DayFraction{ .frac = 0 }).toSegments(),
+                .zone = zone.UTC,
+            };
+            return Target.fromFixedDateTimeZoned(dtz);
+        } else if (comptime meta.hasMethod(Target, "fromFixedDateTime")) {
+            const dt = fixed.DateTime{
+                .date = date_in,
+                .time = (DayFraction{ .frac = 0 }).toSegments(),
+            };
+            return Target.fromFixedDateTime(dt);
+        } else if (comptime meta.hasMethod(Target, "fromFixedDate")) {
+            return Target.fromFixedDate(date_in);
+        } else {
+            unreachable;
+        }
+    } else if (From == fixed.DateTime) {
+        if (comptime meta.hasMethod(Target, "fromFixedDateTimeZoned")) {
+            const dtz = fixed.DateTimeZoned{
+                .date = date_in.date,
+                .time = date_in.time,
+                .zone = zone.UTC,
+            };
+            return Target.fromFixedDateTimeZoned(dtz);
+        } else if (comptime meta.hasMethod(Target, "fromFixedDateTime")) {
+            return Target.fromFixedDateTime(date_in);
+        } else if (comptime meta.hasMethod(Target, "fromFixedDate")) {
+            return Target.fromFixedDate(date_in.date);
+        } else {
+            unreachable;
+        }
+    } else if (From == fixed.DateTimeZoned) {
+        if (comptime meta.hasMethod(Target, "fromFixedDateTimeZoned")) {
+            return Target.fromFixedDateTimeZoned(date_in);
+        } else if (comptime meta.hasMethod(Target, "fromFixedDateTime")) {
+            const dt = fixed.DateTime{
+                .date = date_in.date,
+                .time = date_in.time,
+            };
+            return Target.fromFixedDateTime(dt);
+        } else if (comptime meta.hasMethod(Target, "fromFixedDate")) {
+            return Target.fromFixedDate(date_in.date);
+        } else {
+            unreachable;
+        }
+    } else {
+        unreachable;
     }
 }
 

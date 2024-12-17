@@ -297,20 +297,6 @@ pub const date_recommended = FeatureSet.init(
     },
 );
 
-/// Useful properties for overriding date formatter output
-pub const date_formatting = FeatureSet.init(
-    FeatureStruct{
-        .CustomDayOfWeekFull = true,
-        .CustomDayOfWeekShort = true,
-        .CustomDayOfWeekFirstLetter = true,
-        .CustomDayOfWeekFirst2Letters = true,
-        .CustomMonthFirstLetter = true,
-        .CustomMonthLong = true,
-        .CustomMonthShort = true,
-        .Named = true,
-    },
-);
-
 /// Required features for date times to work
 pub const date_time_required = FeatureSet.init(
     FeatureStruct{
@@ -346,20 +332,6 @@ pub const date_time_recommended = FeatureSet.init(
     FeatureStruct{
         .DebugFormat = true,
         .TimeSegment = true,
-    },
-);
-
-/// Useful properties for overriding date formatter output
-pub const date_time_formatting = FeatureSet.init(
-    FeatureStruct{
-        .CustomDayOfWeekFull = true,
-        .CustomDayOfWeekShort = true,
-        .CustomDayOfWeekFirstLetter = true,
-        .CustomDayOfWeekFirst2Letters = true,
-        .CustomMonthFirstLetter = true,
-        .CustomMonthLong = true,
-        .CustomMonthShort = true,
-        .Named = true,
     },
 );
 
@@ -406,20 +378,6 @@ pub const date_time_zoned_recommended = FeatureSet.init(
     },
 );
 
-/// Useful properties for overriding date formatter output
-pub const date_time_zoned_formatting = FeatureSet.init(
-    FeatureStruct{
-        .CustomDayOfWeekFull = true,
-        .CustomDayOfWeekShort = true,
-        .CustomDayOfWeekFirstLetter = true,
-        .CustomDayOfWeekFirst2Letters = true,
-        .CustomMonthFirstLetter = true,
-        .CustomMonthLong = true,
-        .CustomMonthShort = true,
-        .Named = true,
-    },
-);
-
 /// Rating for a calendar
 pub const CalendarRating = enum {
     /// Represents when required minimums are not reached
@@ -455,7 +413,7 @@ pub const CalendarDateGrade = struct {
         try writer.writeAll("NEXT LEVEL:");
 
         if (self.next_level.count() == 0) {
-            try writer.writeAll(" NONE");
+            try writer.writeAll(" NONE\n");
         } else {
             try writer.writeByte('\n');
             var it = self.next_level.iterator();
@@ -495,7 +453,7 @@ pub const CalendarDateTimeGrade = struct {
         try writer.writeAll("NEXT LEVEL:");
 
         if (self.next_level.count() == 0) {
-            try writer.writeAll(" NONE");
+            try writer.writeAll(" NONE\n");
         } else {
             try writer.writeByte('\n');
             var it = self.next_level.iterator();
@@ -542,7 +500,7 @@ pub const CalendarDateTimeZoneGrade = struct {
         try writer.writeAll("NEXT LEVEL:");
 
         if (self.next_level.count() == 0) {
-            try writer.writeAll(" NONE");
+            try writer.writeAll(" NONE\n");
         } else {
             try writer.writeByte('\n');
             var it = self.next_level.iterator();
@@ -567,6 +525,128 @@ pub const CalendarDateTimeZoneGrade = struct {
         try writer.writeAll("==============\n");
     }
 };
+
+/// Useful properties for overriding day of week formatter output
+pub const day_of_week_formatting = FeatureSet.init(
+    FeatureStruct{
+        .CustomDayOfWeekFull = true,
+        .CustomDayOfWeekShort = true,
+        .CustomDayOfWeekFirstLetter = true,
+        .CustomDayOfWeekFirst2Letters = true,
+    },
+);
+
+/// Useful properties for overriding day of week formatter output
+pub const month_formatting = FeatureSet.init(
+    FeatureStruct{
+        .CustomMonthFirstLetter = true,
+        .CustomMonthLong = true,
+        .CustomMonthShort = true,
+    },
+);
+
+/// Useful properties for overriding day of week formatter output
+pub const name_formatting = FeatureSet.init(
+    FeatureStruct{
+        .Named = true,
+    },
+);
+
+pub const CalendarFormattingRating = enum { Incomplete, Deferred, Complete };
+
+pub const CalendarFormatSubGrade = struct {
+    rating: CalendarFormattingRating = .Deferred,
+    missing: FeatureSet = FeatureSet.initEmpty(),
+
+    pub fn format(
+        self: @This(),
+        comptime f: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = f;
+        _ = options;
+        try writer.print(
+            "\n--------------\nGRADE: {s}\n",
+            .{@tagName(self.rating)},
+        );
+        try writer.writeAll("MISSING:");
+
+        if (self.missing.count() == 0) {
+            try writer.writeAll(" NONE\n");
+        } else {
+            try writer.writeByte('\n');
+            var it = self.missing.iterator();
+            while (it.next()) |nl| {
+                try writer.print("\t{s}\n", .{@tagName(nl)});
+            }
+        }
+
+        try writer.writeAll("--------------\n");
+    }
+};
+
+pub const CalendarFormattingGrade = struct {
+    day_of_week: CalendarFormatSubGrade = .{},
+    month: CalendarFormatSubGrade = .{},
+    named: CalendarFormattingRating = .Incomplete,
+    feature_set: FeatureSet,
+    cal_name: []const u8,
+
+    pub fn format(
+        self: @This(),
+        comptime f: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = f;
+        _ = options;
+        try writer.print(
+            "\n==============\nCalendar: {s}\n",
+            .{self.cal_name},
+        );
+
+        try writer.print("Named: {s}\n", .{@tagName(self.named)});
+        try writer.print("Month: {}\n", .{self.month});
+        try writer.print("Day Of Week: {}\n", .{self.day_of_week});
+        try writer.writeAll("==============\n");
+    }
+};
+
+pub fn gradeDateFormatting(comptime Cal: type) CalendarFormattingGrade {
+    var res = CalendarFormattingGrade{
+        .feature_set = featureSet(Cal),
+        .cal_name = @typeName(Cal),
+    };
+
+    const missing_day_of_week = day_of_week_formatting.differenceWith(res.feature_set);
+    res.day_of_week.missing = missing_day_of_week;
+    if (missing_day_of_week.eql(day_of_week_formatting)) {
+        res.day_of_week.rating = .Deferred;
+    } else if (missing_day_of_week.count() != 0) {
+        res.day_of_week.rating = .Incomplete;
+    } else {
+        res.day_of_week.rating = .Complete;
+    }
+
+    const missing_month = month_formatting.differenceWith(res.feature_set);
+    res.month.missing = missing_month;
+    if (missing_month.eql(month_formatting)) {
+        res.month.rating = .Deferred;
+    } else if (missing_month.count() != 0) {
+        res.month.rating = .Incomplete;
+    } else {
+        res.month.rating = .Complete;
+    }
+
+    if (res.feature_set.contains(.Named)) {
+        res.named = .Complete;
+    } else {
+        res.named = .Incomplete;
+    }
+
+    return res;
+}
 
 /// Grades a calendar's suitability as a Date
 pub fn gradeDate(comptime Cal: type) CalendarDateGrade {
@@ -890,7 +970,7 @@ pub fn hasDayDifference(comptime Cal: type) bool {
 
 /// Checks if a calendar is approximate
 pub fn isApproximate(comptime Cal: type) bool {
-    if (comptime @hasField(Cal, "year")) {
+    if (comptime @hasField(Cal, "Approximate")) {
         return Cal.Approximate;
     } else {
         return false;

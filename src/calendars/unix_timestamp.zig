@@ -42,21 +42,63 @@ pub const Timestamp = struct {
         return Timestamp{ .seconds = sec };
     }
 
-    pub fn asFixed(self: @This()) fixed.DateTime {
-        return self.toFixedDateTime();
+    pub fn dayDifference(self: @This(), right: @This()) i32 {
+        return self.toFixedDateTime().dayDifference(right.toFixedDateTime());
     }
 
-    pub fn fromFixed(fd: fixed.DateTime) @This() {
-        return @This().fromFixedDateTime(fd);
+    pub fn addDays(self: @This(), n: i32) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime().addDays(n));
     }
 
-    pub usingnamespace wrappers.CalendarCompare(@This());
-    pub usingnamespace wrappers.CalendarDayDiff(@This());
-    pub usingnamespace wrappers.CalendarIsValid(@This());
-    pub usingnamespace wrappers.CalendarDayMath(@This());
-    pub usingnamespace wrappers.CalendarNearestValid(@This());
-    pub usingnamespace wrappers.CalendarDayOfWeek(@This());
-    pub usingnamespace wrappers.CalendarNthDays(@This());
+    pub fn subDays(self: @This(), n: i32) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime().subDays(n));
+    }
+
+    pub fn isValid(_: @This()) bool {
+        return true;
+    }
+    pub fn nearestValid(self: @This()) @This() {
+        return self;
+    }
+
+    pub fn dayOfWeek(self: @This()) core.DayOfWeek {
+        return self.toFixedDateTime().dayOfWeek();
+    }
+
+    pub fn nthWeekDay(self: @This(), n: i32, k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).nthWeekDay(n, k);
+    }
+    pub fn dayOfWeekBefore(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekBefore(k);
+    }
+    pub fn dayOfWeekAfter(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekAfter(k);
+    }
+    pub fn dayOfWeekNearest(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekNearest(k);
+    }
+    pub fn dayOfWeekOnOrBefore(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekOnOrBefore(k);
+    }
+    pub fn dayOfWeekOnOrAfter(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekOnOrAfter(k);
+    }
+    pub fn firstWeekDay(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).firstWeekDay(k);
+    }
+    pub fn lastWeekDay(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).lastWeekDay(k);
+    }
+
+    pub fn compare(self: @This(), right: @This()) i32 {
+        if (self.seconds == right.seconds) {
+            return 0;
+        } else if (self.seconds < right.seconds) {
+            return -1;
+        } else {
+            return 1;
+        }
+    }
 
     /// Formats iso Calendar into string form
     /// Will be in the format YYYY-WW-D ISO with astronomical years
@@ -111,21 +153,63 @@ pub const TimestampMs = struct {
         return TimestampMs{ .milliseconds = ms };
     }
 
-    pub fn asFixed(self: @This()) fixed.DateTime {
-        return self.toFixedDateTime();
+    pub fn dayDifference(self: @This(), right: @This()) i32 {
+        return self.toFixedDateTime().dayDifference(right.toFixedDateTime());
     }
 
-    pub fn fromFixed(fd: fixed.DateTime) @This() {
-        return @This().fromFixedDateTime(fd);
+    pub fn addDays(self: @This(), n: i32) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime().addDays(n));
     }
 
-    pub usingnamespace wrappers.CalendarCompare(@This());
-    pub usingnamespace wrappers.CalendarDayDiff(@This());
-    pub usingnamespace wrappers.CalendarIsValid(@This());
-    pub usingnamespace wrappers.CalendarDayMath(@This());
-    pub usingnamespace wrappers.CalendarNearestValid(@This());
-    pub usingnamespace wrappers.CalendarDayOfWeek(@This());
-    pub usingnamespace wrappers.CalendarNthDays(@This());
+    pub fn subDays(self: @This(), n: i32) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime().subDays(n));
+    }
+
+    pub fn isValid(_: @This()) bool {
+        return true;
+    }
+    pub fn nearestValid(self: @This()) @This() {
+        return self;
+    }
+
+    pub fn dayOfWeek(self: @This()) core.DayOfWeek {
+        return self.toFixedDateTime().dayOfWeek();
+    }
+
+    pub fn nthWeekDay(self: @This(), n: i32, k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).nthWeekDay(n, k);
+    }
+    pub fn dayOfWeekBefore(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekBefore(k);
+    }
+    pub fn dayOfWeekAfter(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekAfter(k);
+    }
+    pub fn dayOfWeekNearest(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekNearest(k);
+    }
+    pub fn dayOfWeekOnOrBefore(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekOnOrBefore(k);
+    }
+    pub fn dayOfWeekOnOrAfter(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).dayOfWeekOnOrAfter(k);
+    }
+    pub fn firstWeekDay(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).firstWeekDay(k);
+    }
+    pub fn lastWeekDay(self: @This(), k: core.DayOfWeek) @This() {
+        return @This().fromFixedDateTime(self.toFixedDateTime()).lastWeekDay(k);
+    }
+
+    pub fn compare(self: @This(), right: @This()) i32 {
+        if (self.milliseconds == right.milliseconds) {
+            return 0;
+        } else if (self.milliseconds < right.milliseconds) {
+            return -1;
+        } else {
+            return 1;
+        }
+    }
 
     /// Formats iso Calendar into string form
     /// Will be in the format YYYY-WW-D ISO with astronomical years

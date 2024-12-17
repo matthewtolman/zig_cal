@@ -15,7 +15,7 @@ pub fn CalendarDayDiff(comptime Cal: type) type {
     return struct {
         /// Gets the difference between two dates in days
         pub fn dayDifference(self: Cal, right: Cal) i32 {
-            return self.asFixed().dayDifference(right.asFixed());
+            return self.toFixedDate().dayDifference(right.toFixedDate());
         }
     };
 }
@@ -24,12 +24,12 @@ pub fn CalendarDayMath(comptime Cal: type) type {
     return struct {
         /// Adds n days to the current date
         pub fn addDays(self: Cal, n: i32) Cal {
-            return Cal.fromFixed(self.asFixed().addDays(n));
+            return Cal.fromFixedDate(self.toFixedDate().addDays(n));
         }
 
         /// subtracts n days from the current date
         pub fn subDays(self: Cal, n: i32) Cal {
-            return Cal.fromFixed(self.asFixed().subDays(n));
+            return Cal.fromFixedDate(self.toFixedDate().subDays(n));
         }
     };
 }
@@ -51,7 +51,7 @@ pub fn CalendarNearestValid(comptime Cal: type) type {
             if (self.isValid()) {
                 return self;
             }
-            return Cal.fromFixed(self.asFixed());
+            return Cal.fromFixedDate(self.toFixedDate());
         }
     };
 }
@@ -60,7 +60,7 @@ pub fn CalendarDayOfWeek(comptime Cal: type) type {
     return struct {
         /// Gets the day of the week tied to the date
         pub fn dayOfWeek(self: Cal) DayOfWeek {
-            return self.asFixed().dayOfWeek();
+            return self.toFixedDate().dayOfWeek();
         }
     };
 }
@@ -71,61 +71,65 @@ pub fn CalendarNthDays(comptime Cal: type) type {
         /// date (or after if n is negative)
         /// If n is zero, it will return the current date instead
         pub fn nthWeekDay(self: Cal, n: i32, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.asFixed().nthWeekDay(n, k));
+            return Cal.fromFixedDate(self.toFixedDate().nthWeekDay(n, k));
         }
 
         /// Finds the first date before the current date that occurs on the target
         /// day of the week
         /// (from book, same as k_day_before)
         pub fn dayOfWeekBefore(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.asFixed().dayOfWeekBefore(k));
+            return Cal.fromFixedDate(self.toFixedDate().dayOfWeekBefore(k));
         }
 
         /// Finds the first date after the current date that occurs on the target
         /// day of the week
         /// (from book, same as k_day_after)
         pub fn dayOfWeekAfter(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.asFixed().dayOfWeekAfter(k));
+            return Cal.fromFixedDate(self.toFixedDate().dayOfWeekAfter(k));
         }
 
         /// Finds the first date nearest th current date that occurs on the target
         /// day of the week
         /// (from book, same as k_day_neareast)
         pub fn dayOfWeekNearest(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.asFixed().dayOfWeekNearest(k));
+            return Cal.fromFixedDate(self.toFixedDate().dayOfWeekNearest(k));
         }
 
         /// Finds the first date on or before the current date that occurs on the
         /// target day of the week
         /// (from book, same as k_day_on_or_before)
         pub fn dayOfWeekOnOrBefore(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.asFixed().dayOfWeekOnOrBefore(k));
+            return Cal.fromFixedDate(self.toFixedDate().dayOfWeekOnOrBefore(k));
         }
 
         /// Finds the first date on or after the current date that occurs on the
         /// target day of the week
         /// (from book, same as k_day_on_or_after)
         pub fn dayOfWeekOnOrAfter(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.asFixed().dayOfWeekOnOrAfter(k));
+            return Cal.fromFixedDate(self.toFixedDate().dayOfWeekOnOrAfter(k));
         }
 
+        /// when the date is the first day of the month,
+        /// this will return the first day with the day of week in that month
         pub fn firstWeekDay(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.asFixed().firstWeekDay(k));
+            return Cal.fromFixedDate(self.toFixedDate().firstWeekDay(k));
         }
 
+        /// when the date is the last day of the month,
+        /// this will return the first day with the day of week in that month
         pub fn lastWeekDay(self: Cal, k: DayOfWeek) Cal {
-            return Cal.fromFixed(self.asFixed().lastWeekDay(k));
+            return Cal.fromFixedDate(self.toFixedDate().lastWeekDay(k));
         }
     };
 }
 
 /// Mixin to provide generic versions of compare.
-/// Requires asFixed and fromFixed to be present.
+/// Requires toFixedDate and fromFixedDate to be present.
 pub fn CalendarCompare(comptime Cal: type) type {
     return struct {
         /// Compares two dates. 1 if >, 0 if ==, -1 if less
         pub fn compare(self: Cal, right: Cal) i32 {
-            return self.asFixed().compare(right.asFixed());
+            return self.toFixedDate().compare(right.toFixedDate());
         }
     };
 }

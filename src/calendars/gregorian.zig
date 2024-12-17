@@ -382,14 +382,6 @@ pub const Date = struct {
         return res;
     }
 
-    pub fn asFixed(self: @This()) fixed.Date {
-        return self.toFixedDate();
-    }
-
-    pub fn fromFixed(fd: fixed.Date) @This() {
-        return @This().fromFixedDate(fd);
-    }
-
     pub usingnamespace wrappers.CalendarDayDiff(@This());
     pub usingnamespace wrappers.CalendarIsValid(@This());
     pub usingnamespace wrappers.CalendarDayMath(@This());

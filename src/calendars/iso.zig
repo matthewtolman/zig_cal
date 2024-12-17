@@ -74,32 +74,32 @@ pub const Date = struct {
         const approx = @intFromEnum(
             gregorian.Date.fromFixedDate(d.subDays(3)).year,
         );
-        const approxIso = Date{
+        const approx_iso = Date{
             .year = @enumFromInt(approx + 1),
             .week = 1,
             .day = 1,
         };
 
-        const approxFixed = approxIso.toFixedDate();
-        const isoYear = if (d.compare(approxFixed) >= 0) approx + 1 else approx;
-        const isoStart = Date{
-            .year = @enumFromInt(isoYear),
+        const approx_fixed = approx_iso.toFixedDate();
+        const iso_year = if (d.compare(approx_fixed) >= 0) approx + 1 else approx;
+        const iso_start = Date{
+            .year = @enumFromInt(iso_year),
             .week = 1,
             .day = 1,
         };
-        const isoStartFixed = isoStart.toFixedDate();
-        assert(isoStartFixed.compare(d) <= 0);
+        const iso_start_fixed = iso_start.toFixedDate();
+        assert(iso_start_fixed.compare(d) <= 0);
 
-        const isoWeek = @divFloor(d.day - isoStartFixed.day, 7) + 1;
-        assert(isoWeek >= 1 and isoWeek <= 53);
+        const iso_week = @divFloor(d.day - iso_start_fixed.day, 7) + 1;
+        assert(iso_week >= 1 and iso_week <= 53);
 
-        const isoDay = math.amod(u8, d.day, 7);
-        assert(isoDay >= 1 and isoDay <= 7);
+        const iso_day = math.amod(u8, d.day, 7);
+        assert(iso_day >= 1 and iso_day <= 7);
 
         const res = Date{
-            .year = @enumFromInt(isoYear),
-            .week = @as(u8, @intCast(isoWeek)),
-            .day = isoDay,
+            .year = @enumFromInt(iso_year),
+            .week = @as(u8, @intCast(iso_week)),
+            .day = iso_day,
         };
         assert(res.isValid());
 

@@ -8,3 +8,4 @@ pub const fixed = 0;
 pub const gregorian = 1;
 pub const unix = 719163;
 pub const julian = -1;
+pub const hebrew = -1373427;

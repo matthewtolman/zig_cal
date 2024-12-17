@@ -18,6 +18,7 @@ test "calendars" {
     );
     _ = try calendars.iso.Date.initNums(2024, 4, 4);
     _ = try calendars.julian.Date.initNums(2024, 4, 4);
+    _ = try calendars.hebrew.Date.initNums(2024, 4, 4);
 }
 
 test "utils" {

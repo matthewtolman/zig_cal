@@ -225,39 +225,26 @@ pub const Date = struct {
     /// Gets the day number of the day in the current year (1-366)
     pub fn dayInYear(self: Date) i32 {
         const date = self.nearestValid();
-        const prevYearInt = @intFromEnum(core.adToAstro(date.year)) - 1;
-        const prevYearAstro: core.AstronomicalYear = @enumFromInt(prevYearInt);
-        const prevYear = core.astroToAD(prevYearAstro);
-        const end = @This(){ .year = prevYear, .day = 31, .month = .December };
+        const prev_year_int = @intFromEnum((core.adToAstro(date.year)) catch unreachable) - 1;
+        const prev_year_astro: core.AstronomicalYear = @enumFromInt(prev_year_int);
+        const prev_year = core.astroToAD(prev_year_astro) catch unreachable;
+        const end = @This(){
+            .year = prev_year,
+            .day = 31,
+            .month = .December,
+        };
         const res = date.dayDifference(end);
         assert(res >= 1);
         assert(if (date.isLeapYear()) res <= 366 else res <= 365);
         return res;
     }
 
-    pub fn week(self: @This()) u32 {
-        const approx = @intFromEnum(
-            @This().fromFixedDate(self.subDays(3)).year,
-        );
-        const approxIso = Date{
-            .year = @enumFromInt(approx + 1),
-            .week = 1,
-            .day = 1,
-        };
-
-        const approxFixed = approxIso.toFixedDate();
-        const year = if (self.compare(approxFixed) >= 0) approx + 1 else approx;
-        const start = Date{
-            .year = @enumFromInt(year),
-            .week = 1,
-            .day = 1,
-        };
-        const startFixed = start.toFixedDate();
-        assert(startFixed.compare(self) <= 0);
-
-        const res_week = @divFloor(self.day - startFixed.day, 7) + 1;
-        assert(res_week >= 1 and res_week <= 53);
-        return res_week;
+    pub fn week(self: @This()) i32 {
+        const day = self.dayInYear();
+        const s = Date{ .year = self.year, .month = .January, .day = 1 };
+        const adj = s.dayOfWeekOnOrBefore(.Monday).dayDifference(s);
+        const d = day - adj;
+        return @divFloor(d, 7) + 1;
     }
 
     pub usingnamespace wrappers.CalendarDayDiff(@This());
@@ -405,7 +392,7 @@ test "julian formatting" {
 }
 
 test "julian leap year" {
-    const AnnoDominiYear = @import("./core.zig").AnnoDominiYear;
+    const AnnoDominiYear = @import("core.zig").AnnoDominiYear;
     try testing.expect(
         (Date{
             .year = @as(AnnoDominiYear, @enumFromInt(4)),
@@ -500,6 +487,12 @@ test "dayOfWeek" {
     try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
     dt = start.subDays(7);
     try testing.expectEqual(core.DayOfWeek.Friday, dt.dayOfWeek());
+}
+
+test "week" {
+    const start = try Date.initNums(2024, 1, 5);
+    try testing.expect(start.week() <= 2);
+    try std.testing.expectEqual(1, start.quarter());
 }
 
 test "julian grade" {
