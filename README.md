@@ -10,7 +10,7 @@ Date formatting is available for all included calendaring systems. Date parsing 
 
 Date parsing is also available, though it only supports the Gregorian calendar and a subset of date formatting (usually locale-specifc parsing, such as ordinals, are not supported). Date parsing supports most date formats used in network transmission for machine consumption, such as ISO 8601 (including week and weekday variants), HTTP Date header, and C asctime to name a few. No plans exist for parsing heavily localized dates which include localized month or day names or ordinasl, such as "25 de noviembre 2020" or "December 25th". No plans exist for adding date parsing to non-Gregorian calendar systems.
 
-Basic math operations exist for adding days, getting the day of the week, getting the next day of the week/nth day of the week, etc. Currently, no advanced operations exist (e.g. "add n months" or "add n years"), but plans exist for adding those to the Gregorian calendar.
+Basic math operations exist for adding days, getting the day of the week, getting the next day of the week/nth day of the week, etc. Gregorian and Julian calendars have operations for adding weeks, months, and years to a date. DateTime and DateTimeZoned have methods to add hours, minutes, and seconds to a date. The Gregorian calendar system also provides a month iterator.
 
 Dates for various calendar systems generally come in three flavors: date-only (Date), datetime (DateTime), and zoned datetime (DateTimeZoned). This allows for use of only what is needed for an application (e.g. some financial calculations only care about the Date, not the date and time in a timezone).
 

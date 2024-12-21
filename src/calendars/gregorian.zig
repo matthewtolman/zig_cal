@@ -34,6 +34,41 @@ pub const Month = enum(u8) {
     December = 12,
 };
 
+pub const MonthIterResolution = enum { EndOfMonth, DayOfMonth };
+pub const MonthIterOptions = struct {
+    resolution: MonthIterResolution = .DayOfMonth,
+    day: ?u8 = null,
+    max: usize = m.maxInt(usize),
+    step: i32 = 1,
+    include_first: bool = false,
+};
+
+pub const MonthIter = struct {
+    _opts: MonthIterOptions = .{},
+    _start: Date,
+    _n: i32 = 0,
+    _cycle: usize = 0,
+
+    pub fn next(self: *@This()) ?Date {
+        if (self._cycle >= self._opts.max) return null;
+        defer self._cycle += 1;
+
+        if (self._cycle == 0 and self._opts.include_first) {
+            return self._start;
+        }
+
+        self._n += self._opts.step;
+
+        var res = self._start.addMonths(self._n);
+        if (self._opts.resolution == .EndOfMonth) {
+            res.day = res.daysInMonth();
+        } else if (self._opts.day) |d| {
+            res.day = @min(d, res.daysInMonth());
+        }
+        return res;
+    }
+};
+
 /// Gets the Gregorian Year from a fixed date
 fn yearFromFixed(fixedDate: fixed.Date) AstronomicalYear {
     // Get our day without leap years
@@ -169,6 +204,13 @@ pub const Date = struct {
             .January, .March, .May, .July, .August, .October, .December => 31,
             .April, .June, .September, .November => 30,
             .February => if (self.isLeapYear()) 29 else 28,
+        };
+    }
+
+    pub fn monthsIter(self: @This(), opts: MonthIterOptions) MonthIter {
+        return MonthIter{
+            ._start = self,
+            ._opts = opts,
         };
     }
 
@@ -1008,4 +1050,32 @@ test "gregorian datetimezoned grade" {
     const features = @import("../utils/features.zig");
     const grade = features.gradeDateTimeZoned(DateTimeZoned);
     try std.testing.expectEqual(features.CalendarRating.Recommended, grade.rating);
+}
+
+test "month iteration 1 31" {
+    var iter = (try Date.initNums(2024, 1, 31)).monthsIter(.{});
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 2, 29), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 3, 31), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 4, 30), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 5, 31), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 6, 30), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 7, 31), iter.next().?);
+}
+
+test "month iteration 2 29" {
+    var iter = (try Date.initNums(2024, 2, 29)).monthsIter(.{});
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 3, 29), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 4, 29), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 5, 29), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 6, 29), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 7, 29), iter.next().?);
+}
+
+test "month iteration 2 29 end" {
+    var iter = (try Date.initNums(2024, 2, 29)).monthsIter(.{ .resolution = .EndOfMonth });
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 3, 31), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 4, 30), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 5, 31), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 6, 30), iter.next().?);
+    try std.testing.expectEqualDeep(try Date.initNums(2024, 7, 31), iter.next().?);
 }
