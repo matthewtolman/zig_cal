@@ -164,7 +164,7 @@ pub const Date = struct {
     }
 
     /// Returns the number of days in a month
-    pub fn daysInMonth(self: Date) i8 {
+    pub fn daysInMonth(self: Date) u8 {
         return switch (self.month) {
             .January, .March, .May, .July, .August, .October, .December => 31,
             .April, .June, .September, .November => 30,
@@ -388,7 +388,101 @@ pub const Date = struct {
     pub usingnamespace wrappers.CalendarNearestValid(@This());
     pub usingnamespace wrappers.CalendarDayOfWeek(@This());
     pub usingnamespace wrappers.CalendarNthDays(@This());
+
+    /// Adds n months to the current date
+    pub fn addMonths(self: @This(), n: i32) @This() {
+        var new_date = self;
+        const target_month = @intFromEnum(new_date.month) + n;
+        const num_years = @divFloor(target_month - 1, 12);
+        const month_in_year = math.amod(i32, target_month, 12);
+        std.debug.assert(month_in_year >= 1);
+        std.debug.assert(month_in_year <= 12);
+        new_date.month = @enumFromInt(month_in_year);
+        new_date.year = @enumFromInt(@intFromEnum(new_date.year) + num_years);
+        new_date.day = @min(new_date.day, new_date.daysInMonth());
+        new_date.validate() catch unreachable;
+        return new_date;
+    }
+
+    /// Subtracts n months to the current date
+    pub fn subMonths(self: @This(), n: i32) @This() {
+        return self.addMonths(-n);
+    }
+
+    /// Adds n weeks to the current date
+    pub fn addWeeks(self: @This(), n: i32) @This() {
+        return self.addDays(n * 7);
+    }
+    /// Subtracts n weeks to the current date
+    pub fn subWeeks(self: @This(), n: i32) @This() {
+        return self.subDays(n * 7);
+    }
+
+    /// Adds n years to the current date
+    pub fn addYears(self: @This(), n: i32) @This() {
+        var new_date = self;
+        new_date.year = @enumFromInt(@intFromEnum(self.year) + n);
+        // Handle leap year
+        new_date.day = @min(new_date.day, new_date.daysInMonth());
+        new_date.validate() catch unreachable;
+        return new_date;
+    }
+
+    /// Subtracts n years to the current date
+    pub fn subYears(self: @This(), n: i32) @This() {
+        return self.addYears(-n);
+    }
 };
+
+test "sub months" {
+    {
+        const start = try Date.initNums(2023, 12, 31);
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 11, 30), start.subMonths(1));
+        try std.testing.expectEqualDeep(try Date.initNums(2022, 11, 30), start.subMonths(13));
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 2, 28), start.subMonths(10));
+        try std.testing.expectEqualDeep(try Date.initNums(2020, 2, 29), start.subMonths(46));
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 6, 30), start.subMonths(6));
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 7, 31), start.subMonths(5));
+        try std.testing.expectEqualDeep(try Date.initNums(2022, 12, 31), start.subMonths(12));
+        try std.testing.expectEqualDeep(try Date.initNums(2022, 8, 31), start.subMonths(16));
+        try std.testing.expectEqualDeep(try Date.initNums(2022, 6, 30), start.subMonths(18));
+        try std.testing.expectEqualDeep(try Date.initNums(2021, 12, 31), start.subMonths(24));
+        try std.testing.expectEqualDeep(try Date.initNums(2022, 1, 31), start.subMonths(23));
+        try std.testing.expectEqualDeep(try Date.initNums(2020, 12, 31), start.subMonths(36));
+        try std.testing.expectEqualDeep(try Date.initNums(2018, 12, 31), start.subMonths(60));
+    }
+}
+
+test "add months" {
+    {
+        const start = try Date.initNums(2023, 1, 16);
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 2, 16), start.addMonths(1));
+        try std.testing.expectEqualDeep(try Date.initNums(2024, 2, 16), start.addMonths(13));
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 7, 16), start.addMonths(6));
+        try std.testing.expectEqualDeep(try Date.initNums(2024, 1, 16), start.addMonths(12));
+        try std.testing.expectEqualDeep(try Date.initNums(2024, 5, 16), start.addMonths(16));
+        try std.testing.expectEqualDeep(try Date.initNums(2024, 7, 16), start.addMonths(18));
+        try std.testing.expectEqualDeep(try Date.initNums(2025, 1, 16), start.addMonths(24));
+        try std.testing.expectEqualDeep(try Date.initNums(2025, 12, 16), start.addMonths(35));
+        try std.testing.expectEqualDeep(try Date.initNums(2027, 1, 16), start.addMonths(48));
+        try std.testing.expectEqualDeep(try Date.initNums(2028, 1, 16), start.addMonths(60));
+    }
+    {
+        const start = try Date.initNums(2023, 1, 31);
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 2, 28), start.addMonths(1));
+        try std.testing.expectEqualDeep(try Date.initNums(2024, 2, 29), start.addMonths(13));
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 2, 28), start.addMonths(1));
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 7, 31), start.addMonths(6));
+        try std.testing.expectEqualDeep(try Date.initNums(2023, 6, 30), start.addMonths(5));
+        try std.testing.expectEqualDeep(try Date.initNums(2024, 1, 31), start.addMonths(12));
+        try std.testing.expectEqualDeep(try Date.initNums(2024, 5, 31), start.addMonths(16));
+        try std.testing.expectEqualDeep(try Date.initNums(2024, 7, 31), start.addMonths(18));
+        try std.testing.expectEqualDeep(try Date.initNums(2025, 1, 31), start.addMonths(24));
+        try std.testing.expectEqualDeep(try Date.initNums(2025, 12, 31), start.addMonths(35));
+        try std.testing.expectEqualDeep(try Date.initNums(2027, 1, 31), start.addMonths(48));
+        try std.testing.expectEqualDeep(try Date.initNums(2028, 1, 31), start.addMonths(60));
+    }
+}
 
 test "days in year" {
     const testCases = [_]Date{
@@ -756,6 +850,98 @@ test "datenearest valid" {
     try std.testing.expectEqual(2024, @intFromEnum(dt2.year));
     try std.testing.expectEqual(3, @intFromEnum(dt2.month));
     try std.testing.expectEqual(1, dt2.day);
+}
+
+test "datetime add seconds" {
+    // Test no date rollover
+    const dt1 = DateTime{
+        .date = .{
+            .year = @enumFromInt(2024),
+            .month = @enumFromInt(3),
+            .day = 2,
+        },
+        .time = .{ .hour = 23, .minute = 59, .second = 1, .nano = 0 },
+    };
+    const dt2 = dt1.addSeconds(60);
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(2024, @intFromEnum(dt2.date.year));
+    try std.testing.expectEqual(3, @intFromEnum(dt2.date.month));
+    try std.testing.expectEqual(3, dt2.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(0, dt2.time.hour);
+    try std.testing.expectEqual(0, dt2.time.minute);
+    try std.testing.expectEqual(1, dt2.time.second);
+}
+
+test "datetime add minutes" {
+    // Test no date rollover
+    const dt1 = DateTime{
+        .date = .{
+            .year = @enumFromInt(2024),
+            .month = @enumFromInt(3),
+            .day = 2,
+        },
+        .time = .{ .hour = 23, .minute = 2, .second = 0, .nano = 0 },
+    };
+    const dt2 = dt1.addMinutes(60);
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(2024, @intFromEnum(dt2.date.year));
+    try std.testing.expectEqual(3, @intFromEnum(dt2.date.month));
+    try std.testing.expectEqual(3, dt2.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(0, dt2.time.hour);
+    try std.testing.expectEqual(2, dt2.time.minute);
+    try std.testing.expectEqual(0, dt2.time.second);
+}
+
+test "datetime add hours" {
+    // Test no date rollover
+    const dt1 = DateTime{
+        .date = .{
+            .year = @enumFromInt(2024),
+            .month = @enumFromInt(3),
+            .day = 2,
+        },
+        .time = .{ .hour = 20, .minute = 2, .second = 0, .nano = 0 },
+    };
+    const dt2 = dt1.addHours(5);
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(2024, @intFromEnum(dt2.date.year));
+    try std.testing.expectEqual(3, @intFromEnum(dt2.date.month));
+    try std.testing.expectEqual(3, dt2.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(1, dt2.time.hour);
+    try std.testing.expectEqual(2, dt2.time.minute);
+    try std.testing.expectEqual(0, dt2.time.second);
+}
+
+test "datetime subtract hours" {
+    // Test no date rollover
+    const dt1 = DateTime{
+        .date = .{
+            .year = @enumFromInt(2024),
+            .month = @enumFromInt(3),
+            .day = 2,
+        },
+        .time = .{ .hour = 2, .minute = 2, .second = 0, .nano = 0 },
+    };
+    const dt2 = dt1.subHours(3);
+
+    // Make sure we have the right date
+    try std.testing.expectEqual(2024, @intFromEnum(dt2.date.year));
+    try std.testing.expectEqual(3, @intFromEnum(dt2.date.month));
+    try std.testing.expectEqual(1, dt2.date.day);
+
+    // Make sure we have the right time
+    try std.testing.expectEqual(23, dt2.time.hour);
+    try std.testing.expectEqual(2, dt2.time.minute);
+    try std.testing.expectEqual(0, dt2.time.second);
 }
 
 test "datetime nearest valid" {

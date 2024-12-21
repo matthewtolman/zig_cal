@@ -253,6 +253,49 @@ pub const Date = struct {
     pub usingnamespace wrappers.CalendarNearestValid(@This());
     pub usingnamespace wrappers.CalendarDayOfWeek(@This());
     pub usingnamespace wrappers.CalendarNthDays(@This());
+
+    /// Adds n months to the current date
+    pub fn addMonths(self: @This(), n: i32) @This() {
+        var new_date = self;
+        const target_month = @intFromEnum(new_date.month) + n;
+        const num_years = @divFloor(target_month - 1, 12);
+        const month_in_year = math.amod(i32, target_month, 12);
+        std.debug.assert(month_in_year >= 1);
+        std.debug.assert(month_in_year <= 12);
+        new_date.month = @enumFromInt(month_in_year);
+        new_date.year = @enumFromInt(@intFromEnum(new_date.year) + num_years);
+        new_date.day = @min(new_date.day, new_date.daysInMonth());
+        new_date.validate() catch unreachable;
+        return new_date;
+    }
+
+    /// Subtracts n months to the current date
+    pub fn subMonths(self: @This(), n: i32) @This() {
+        return self.addMonths(-n);
+    }
+
+    /// Adds n weeks to the current date
+    pub fn addWeeks(self: @This(), n: i32) @This() {
+        return self.addDays(n * 7);
+    }
+    /// Subtracts n weeks to the current date
+    pub fn subWeeks(self: @This(), n: i32) @This() {
+        return self.subDays(n * 7);
+    }
+
+    /// Adds n years to the current date
+    pub fn addYears(self: @This(), n: i32) @This() {
+        var new_date = self;
+        new_date.year = @enumFromInt(@intFromEnum(self.year) + n);
+        // Handle leap year
+        new_date.day = @min(new_date.day, new_date.daysInMonth());
+        return new_date;
+    }
+
+    /// Subtracts n years to the current date
+    pub fn subYears(self: @This(), n: i32) @This() {
+        return self.addYears(-n);
+    }
 };
 
 test "julian conversions" {

@@ -591,6 +591,78 @@ pub fn formatDate(fmt: Format, date: anytype, writer: anytype) !void {
 }
 
 /// Formats a date and prints formatted date into a writer
+/// Format string format:
+/// | Character(s) | Meaning |
+/// ---------------|---------|
+/// | Y... | Year. Repeated occurrences determines padding. 1 B.C. is 0. 2 B.C. is -1 |
+/// | Yo | Year in ordinal format based on locale (e.g. 2024th) |
+/// | y | Anno Domini year. All years are unsigned, so use with an era. No padding. |
+/// | yo | Anno Domini year in ordinal (e.g. 2021st)|
+/// | yy | Year minus 2000 to 2 digits (i.e. 2 digit year for years after 2000) |
+/// | yyy | year minus 2000 to 3 digits (i.e. 3 digit year for years after 2000) |
+/// | yyyy... | Anno domini year with 4 padding. Can add more `y` to increase padding |
+/// | u... | Signed Year where '+' is for AD and '-' for B.C. Repeated occurrences determines padding. |
+/// | G, GG, GGG | Era designator, short. Based on locale |
+/// | GGGG | Era designator long. Based on locale |
+/// | R | Week in year. For Gregorian, this is the ISO week. |
+/// | RR... | Week in year padded to number of occurrences of R. For Gregorian, this is the ISO week. |
+/// | Ro | Week in year in ordinal (e.g 4th) |
+/// | Q | Quarter (e.g. 1) |
+/// | Qo | Quarter in ordinal form |
+/// | QQ | Quarter padded to 2 digits |
+/// | QQQ | Quarter prefixed with Q (e.g. Q1). Locale can change prefix/ordering. |
+/// | QQQQ | Quarter spelled out with number (e.g. Quarter 1). Based on locale |
+/// | M | Month number, no padding |
+/// | MM | Month number padded to 2 digits |
+/// | MMM | Month name short (based on either calendar overrides or locale) |
+/// | MMMM | Month name full (based on either calendar overrides or locale) |
+/// | MMMMM | Month name first leter (based on either calendar overrides or locale) |
+/// | d | Day of month |
+/// | dd | Day of month, 2 padding |
+/// | do | Day of month, ordinal |
+/// | D... | Day of year (e.g. 236). Repitition determins padding |
+/// | Do | Day of year in ordinal form |
+/// | e | Day of week (1 - Monday, 7 - Sunday) |
+/// | ee | Day of week padded to 2 digits |
+/// | eee | Day of week name short (e.g. Tue). Based on calendar overrides or locale |
+/// | eeee | Day of week name full (e.g. Tuesday) Based on calendar overrides or locale |
+/// | eeeee | Day of week name first letter (e.g. T) Based on calendar overrides or locale |
+/// | eeeeee | Day of week name first 2 letters (e.g. Tu) Based on calendar overrides or locale |
+/// | eo | Day of week number in ordinal form (e.g. 1st) |
+/// | a, aa | Time of day based on locale (e.g. a.m., PM, etc) |
+/// | A, AA | Time of day upper (AM, PM) |
+/// | AAA | Time of day lower (am, pm) |
+/// | AAAA | Time of day lower with periods (a.m., p.m.) |
+/// | AAAAA | Time of day lower, first letter (a, p) |
+/// | h | Hour, 12-houring system |
+/// | hh | Hour, 12-houring system 2 padding |
+/// | ho | Hour, 12-houring system ordinal |
+/// | H | Hour, 24-houring system |
+/// | HH | Hour, 24-houring system, 2 padding |
+/// | Ho | Hour, 24-houring system ordinal |
+/// | m | Minute, no padding |
+/// | mm | Minute, 2 padding |
+/// | mo | Minute, ordinal |
+/// | s | Second, no padding |
+/// | ss | Second, 2 padding |
+/// | so | Second, ordinal |
+/// | S... | Fraction of a second. Number of S's determine precision. Up to nanosecond supported |
+/// | X | Timezone offset from UTC. Z used for UTC. No delimiter, compact (e.g. -08, +0530, Z) |
+/// | XX | Timezone offset from UTC. Z used for UTC. No delimiter (e.g. -0800, +0530, Z) |
+/// | XXX | Timezone offset from UTC. Z used for UTC. Colon delimiter (e.g. -08:00, +05:30, Z) |
+/// | x | Timezone offset from UTC. No delimiter, compact (e.g. -08, +0530, +00) |
+/// | xx | Timezone offset from UTC. No delimiter (e.g. -0800, +0530, +0000) |
+/// | xxx | Timezone offset from UTC. Colon delimiter (e.g. -08:00, +05:30, +00:00) |
+/// | O | GMT offset, short. GMT/UTC timezone is shown as "GMT" (e.g. GMT+05, GMT-1020, GMT) |
+/// | OO, OOO | GMT offset, short (e.g. GMT+05, GMT-10:20, GMT+00) |
+/// | OOOO | GMT offset, full (e.g. GMT+05:00, GMT-10:20, GMT+00:00) |
+/// | P..PPPP | Localized date. Number of characters determines variant |
+/// | p..pppp | Localized time. Number of characters determines variant |
+/// | Pp..PPPPpppp | Localized date time. Number of characters determines variant. Upper and lower p count must match. |
+/// | C | Calendar system name |
+/// | '...' | Quoted text, will output contents. \' and \\ are allowed for escaping in quotes |
+/// | \. | Escape following character (don't interpret as a command) |
+/// | ... | Everything else is treated as plain text and will be output as-is |
 pub fn format(fmt: []const u8, date: anytype, writer: anytype) !void {
     const locale = @import("formatting/l10n.zig").EnUsLocale{};
     const f = try parseFormatStr(fmt);
@@ -599,6 +671,7 @@ pub fn format(fmt: []const u8, date: anytype, writer: anytype) !void {
 
 /// Formats a date and prints formatted date into a writer
 /// Uses a specific locale for any locale-specific formatting
+/// see format for format string format
 pub fn formatLocale(fmt: []const u8, date: anytype, writer: anytype, locale: anytype) !void {
     const f = try parseFormatStr(fmt);
     try formatDateLocale(f, date, writer, locale);

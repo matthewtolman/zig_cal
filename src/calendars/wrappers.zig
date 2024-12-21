@@ -209,6 +209,51 @@ pub fn CalendarDateTime(comptime Cal: type) type {
             }
         }
 
+        /// Adds n hours to a date time
+        pub fn addHours(self: @This(), n: i32) @This() {
+            const target_hours = @as(i32, @intCast(self.time.hour)) + n;
+            const days = @divFloor(target_hours, 24);
+            const hours = math.mod(i32, target_hours, 24);
+            var res = self.addDays(days);
+            res.time.hour = @intCast(hours);
+            return res;
+        }
+
+        /// Subtracts n hours from a date time
+        pub fn subHours(self: @This(), n: i32) @This() {
+            return self.addHours(-n);
+        }
+
+        /// Adds n minutes to a date time
+        pub fn addMinutes(self: @This(), n: i32) @This() {
+            const target_minutes = @as(i32, @intCast(self.time.minute)) + n;
+            const hrs = @divFloor(target_minutes, 60);
+            const minutes = math.mod(i32, target_minutes, 60);
+            var res = self.addHours(hrs);
+            res.time.minute = @intCast(minutes);
+            return res;
+        }
+
+        /// Subtracts n minutes from a date time
+        pub fn subMinutes(self: @This(), n: i32) @This() {
+            return self.addMinutes(-n);
+        }
+
+        /// Adds n minutes to a date time
+        pub fn addSeconds(self: @This(), n: i32) @This() {
+            const target_seconds = @as(i32, @intCast(self.time.second)) + n;
+            const mins = @divFloor(target_seconds, 60);
+            const seconds = math.mod(i32, target_seconds, 60);
+            var res = self.addMinutes(mins);
+            res.time.second = @intCast(seconds);
+            return res;
+        }
+
+        /// Subtracts n minutes from a date time
+        pub fn subSeconds(self: @This(), n: i32) @This() {
+            return self.addSeconds(-n);
+        }
+
         /// Returns whether the date/time is valid
         pub fn isValid(self: @This()) bool {
             self.validate() catch return false;
@@ -644,6 +689,48 @@ pub fn CalendarDateTimeZoned(Cal: type) type {
             } else {
                 return self.toFixedDateTimeZoned().lastWeekDay(k);
             }
+        }
+
+        /// Adds n hours to a date time
+        pub fn addHours(self: @This(), n: i32) @This() {
+            var res = self;
+            const dt = (DateTime{ .date = res.date, .time = res.time }).addHours(n);
+            res.date = dt.date;
+            res.time = dt.time;
+            return res;
+        }
+
+        /// Subtracts n hours from a date time
+        pub fn subHours(self: @This(), n: i32) @This() {
+            return self.addHours(-n);
+        }
+
+        /// Adds n minutes to a date time
+        pub fn addMinutes(self: @This(), n: i32) @This() {
+            var res = self;
+            const dt = (DateTime{ .date = res.date, .time = res.time }).addMinutes(n);
+            res.date = dt.date;
+            res.time = dt.time;
+            return res;
+        }
+
+        /// Subtracts n minutes from a date time
+        pub fn subMinutes(self: @This(), n: i32) @This() {
+            return self.addMinutes(-n);
+        }
+
+        /// Adds n minutes to a date time
+        pub fn addSeconds(self: @This(), n: i32) @This() {
+            var res = self;
+            const dt = (DateTime{ .date = res.date, .time = res.time }).addSeconds(n);
+            res.date = dt.date;
+            res.time = dt.time;
+            return res;
+        }
+
+        /// Subtracts n minutes from a date time
+        pub fn subSeconds(self: @This(), n: i32) @This() {
+            return self.addSeconds(-n);
         }
 
         /// Converts to the UTC timezone

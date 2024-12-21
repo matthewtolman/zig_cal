@@ -32,11 +32,56 @@ const ParsedData = struct {
 
 const ParseError = zone.TimeZoneValidationError || std.fmt.ParseIntError || error{ InvalidInput, UnsupportedFormatString, ConflictingInput };
 
+/// Parses a date based on a format struct
 pub fn parseDate(parse_fmt: Format, input: []const u8) !gregorian.DateTimeZoned {
     const data = try parseIntoStruct(parse_fmt, input);
     return try parsedToDate(data);
 }
 
+/// Parses a date based on a format string. First argument is format string, second is date string
+/// Format string format:
+/// | Character(s) | Meaning |
+/// ---------------|---------|
+/// | Y... | Year. Repeated occurrences determines padding. 1 B.C. is 0. 2 B.C. is -1 |
+/// | y | Anno Domini year. All years are unsigned, so use with an era. If no era is found, assumes A.D. |
+/// | yy | 2 digit year plus 2000 (i.e. 2 digit year for years after 2000) |
+/// | yyy | 3 digit year plus 2000 (i.e. 3 digit year for years after 2000) |
+/// | yyyy... | Anno domini year with 4 padding. Can add more `y` to increase padding |
+/// | u... | Signed Year where '+' is for AD and '-' for B.C. Repeated occurrences determines padding. |
+/// | G, GG, GGG | Era designator (supports ad, a.d., ce, c.e., bc, b.c., bce, b.c.e.) |
+/// | GGGG | Era designator long. (supports "anno domini", "before christ", "current era", "before current era") |
+/// | R.. | ISO week in year |
+/// | M, MM | Month number |
+/// | MMM | Month name short (Jan, Jun, Jul, etc) |
+/// | MMMM | Month name full (January, June, July, etc.) |
+/// | d, dd | Day of month |
+/// | D... | Day of year (e.g. 236) |
+/// | e | Day of week (1 - Monday, 7 - Sunday) |
+/// | ee | Day of week padded to 2 digits |
+/// | eee | Day of week name short (e.g. Tue). Based on calendar overrides or locale |
+/// | eeee | Day of week name full (e.g. Tuesday) Based on calendar overrides or locale |
+/// | eeeeee | Day of week name first 2 letters (e.g. Tu) Based on calendar overrides or locale |
+/// | a, aa | Time of day (any of the A..AAAAA variants) |
+/// | A, AA | Time of day upper (AM, PM) |
+/// | AAA | Time of day lower (am, pm) |
+/// | AAAA | Time of day lower with periods (a.m., p.m.) |
+/// | AAAAA | Time of day lower, first letter (a, p) |
+/// | h | Hour, 12-houring system |
+/// | hh | Hour, 12-houring system 2 padding |
+/// | H | Hour, 24-houring system |
+/// | HH | Hour, 24-houring system, 2 padding |
+/// | m | Minute, no padding |
+/// | mm | Minute, 2 padding |
+/// | s | Second, no padding |
+/// | ss | Second, 2 padding |
+/// | S... | Fraction of a second. Number of S's determine precision. Up to nanosecond supported |
+/// | X, XX, XXX | Timezone offset from UTC. Z used for UTC. (e.g. -08, +0530, Z, -04:34) |
+/// | x, xx, xxx | Timezone offset from UTC. (e.g. -08, +0530, +00, +01:00) |
+/// | O | GMT offset, short. GMT/UTC timezone is shown as "GMT" (e.g. GMT+05, GMT-1020, GMT) |
+/// | OO, OOO, OOOO | GMT offset (e.g. GMT+05, GMT-10:20, GMT+00, GMT-01:00) |
+/// | '...' | Quoted text, will match contents. \' and \\ are allowed for escaping in quotes |
+/// | \. | Escape following character (don't interpret as a command) |
+/// | ... | Everything else is treated as plain text and will be matched as-is |
 pub fn parse(parse_fmt: []const u8, input: []const u8) !gregorian.DateTimeZoned {
     return parseDate(try parseFormatStr(parse_fmt), input);
 }
