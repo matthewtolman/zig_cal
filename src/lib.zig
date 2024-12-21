@@ -33,6 +33,7 @@ test "utils" {
 
 test "formatting" {
     _ = @import("formatting.zig");
+    _ = @import("parsing.zig");
 }
 
 test "holidays" {

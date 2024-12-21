@@ -1,10 +1,10 @@
 // G, GG, GGG - era designator, short
 // GGGG - era designator, long
 // yo - unsigned year, ordinal
-// Y - unsigned year, no padding
-// YY - unsigned year, last two digits
-// YYY - unsigned year, padded to 3
-// YYYY - unsigned year, padded to 4
+// Y - ISO year, no padding (- if BC)
+// YY - ISO year, 2 padding (- if BC)
+// YYY - ISO year, 3 padding (- if BC)
+// YYYY - ISO year, 4 padding (- if BC)
 // YYYYY... - number of padding
 // y - unsigned year, no padding
 // yy - unsigned year, last two digits
@@ -70,7 +70,8 @@
 // x - Timezone offset, without Z, undeliminated, min 2 (-08, +0530)
 // xx - Timezone offset, without Z, undeliminated, min 4 (-0800, +0530)
 // xxx - Timezone offset, without Z, deliminated (-08:00, +05:30)
-// O..OOO - GMT offset (GMT-8, GMT+5:30, GMT+0)
+// O - GMT offset with GMT/UTC being just "GMT"
+// OO..OOO - GMT offset (GMT-8, GMT+5:30, GMT+0)
 // OOOO - GMT offset, full (GMT-08:00)
 // P..PPPP - Localized date
 // p..pppp - Localized time
@@ -84,6 +85,7 @@ pub const SegmentType = enum {
 
     YearOrdinal, // yo, Yo
     Year, // y, yy, yyy, yyyy, ..., Y, YY, YYY, YYYY, ...
+    YearIso,
 
     WeekInYearOrdinal, // Ro
     WeekInYear, // R, RR, RRR, ...
@@ -148,4 +150,5 @@ pub const SegmentType = enum {
     CalendarSystem, // C
 
     Text,
+    TextQuoted,
 };

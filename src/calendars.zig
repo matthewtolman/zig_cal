@@ -11,3 +11,4 @@ pub const AstronomicalYear = @import("calendars/core.zig").AstronomicalYear;
 pub const AnnoDominiYear = @import("calendars/core.zig").AnnoDominiYear;
 pub const astronomicalToAnnoDomini = @import("calendars/core.zig").astroToAD;
 pub const annoDominiToAstronomical = @import("calendars/core.zig").adToAstro;
+pub const DayOfWeek = @import("calendars/core.zig").DayOfWeek;

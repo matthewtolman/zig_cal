@@ -79,22 +79,22 @@ test "parse format string" {
             .{ .type = .DayofYearNum, .str = "DDD" },
         }) },
         .{ .input = "Y", .res = Format.from(&[_]Segment{
-            .{ .type = .Year, .str = "Y" },
+            .{ .type = .YearIso, .str = "Y" },
         }) },
         .{ .input = "Yo", .res = Format.from(&[_]Segment{
             .{ .type = .YearOrdinal, .str = "Yo" },
         }) },
         .{ .input = "YY", .res = Format.from(&[_]Segment{
-            .{ .type = .Year, .str = "YY" },
+            .{ .type = .YearIso, .str = "YY" },
         }) },
         .{ .input = "YYY", .res = Format.from(&[_]Segment{
-            .{ .type = .Year, .str = "YYY" },
+            .{ .type = .YearIso, .str = "YYY" },
         }) },
         .{ .input = "YYYY", .res = Format.from(&[_]Segment{
-            .{ .type = .Year, .str = "YYYY" },
+            .{ .type = .YearIso, .str = "YYYY" },
         }) },
         .{ .input = "YYYYYYYYYY", .res = Format.from(&[_]Segment{
-            .{ .type = .Year, .str = "YYYYYYYYYY" },
+            .{ .type = .YearIso, .str = "YYYYYYYYYY" },
         }) },
         .{ .input = "y", .res = Format.from(&[_]Segment{
             .{ .type = .Year, .str = "y" },

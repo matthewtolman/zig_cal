@@ -10,13 +10,20 @@ const zone = @import("../calendars/zone.zig");
 const fixed = @import("../calendars/fixed.zig");
 const features = @import("../utils/features.zig");
 
+fn dayOfWeekToNum(dow: core.DayOfWeek) u8 {
+    switch (dow) {
+        .Sunday => return 7,
+        else => return @intFromEnum(dow),
+    }
+}
+
 pub fn formatDate(
     self: *const Format,
     date: anytype,
     writer: anytype,
-    comptime Locale: type,
+    locale: anytype,
 ) (@TypeOf(writer).Error)!void {
-    comptime l10n.assertValidLocale(Locale);
+    comptime l10n.assertValidLocale(@TypeOf(locale));
     const D = l10n.ZonedDateTimeOf(@TypeOf(date));
     const d = convert(date, D);
     const segs = self._segs[0..self._segs_len];
@@ -24,95 +31,96 @@ pub fn formatDate(
     for (segs) |seg| {
         switch (seg.type) {
             .Year => try writeUnsignedYear(d, writer, seg.str.len),
-            .YearOrdinal => try Locale.ordinal(writer, yearOf(u32, d)),
-            .EraDesignatorShort => try eraDesignatorShort(d, writer, Locale),
-            .EraDesignatorLong => try eraDesignatorLong(d, writer, Locale),
-            .Text => try writeText(seg.str, writer),
+            .YearIso => try writeIsoYear(d, writer, seg.str.len),
+            .YearOrdinal => try locale.ordinal(writer, yearOf(u32, d)),
+            .EraDesignatorShort => try eraDesignatorShort(d, writer, locale),
+            .EraDesignatorLong => try eraDesignatorLong(d, writer, locale),
+            .Text, .TextQuoted => try writeText(seg.str, writer),
             .MonthNum => try writeMonthNum(d, writer, seg.str.len),
-            .MonthNameShort => try writeMonthShort(d, writer, Locale),
-            .MonthNameLong => try writeMonthLong(d, writer, Locale),
-            .MonthNameFirstLetter => try writeMonthInitial(d, writer, Locale),
-            .DayOfMonthOrdinal => try Locale.ordinal(writer, dayOfMonthOf(u32, d)),
+            .MonthNameShort => try writeMonthShort(d, writer, locale),
+            .MonthNameLong => try writeMonthLong(d, writer, locale),
+            .MonthNameFirstLetter => try writeMonthInitial(d, writer, locale),
+            .DayOfMonthOrdinal => try locale.ordinal(writer, dayOfMonthOf(u32, d)),
             .DayOfMonthNum => try writeMonthDay(d, writer, seg.str.len),
             .WeekInYear => try writeWeekYear(d, writer, seg.str.len),
-            .WeekInYearOrdinal => try Locale.ordinal(writer, weekOf(u32, d)),
+            .WeekInYearOrdinal => try locale.ordinal(writer, weekOf(u32, d)),
             .SignedYear => try writeSignedYear(d, writer, seg.str.len),
             .QuarterNum => try writeQuarterNum(d, writer, seg.str.len),
-            .QuarterOrdinal => try Locale.ordinal(writer, quarterOf(u32, d)),
-            .QuarterLong => try Locale.quarterLong(writer, quarterOf(u32, d)),
-            .QuarterPrefixed => try Locale.quarterShort(writer, quarterOf(u32, d)),
+            .QuarterOrdinal => try locale.ordinal(writer, quarterOf(u32, d)),
+            .QuarterLong => try locale.quarterLong(writer, quarterOf(u32, d)),
+            .QuarterPrefixed => try locale.quarterShort(writer, quarterOf(u32, d)),
             .DayofYearNum => try writeDayOfYear(d, writer, seg.str.len),
-            .DayOfYearOrdinal => try Locale.ordinal(writer, dayOfYearOf(u32, d)),
+            .DayOfYearOrdinal => try locale.ordinal(writer, dayOfYearOf(u32, d)),
             .DayOfWeekNum => try writeDayOfWeekOf(d, writer, seg.str.len),
-            .DayOfWeekOrdinal => try Locale.ordinal(writer, dayOfWeekOf(u32, d)),
-            .DayOfWeekNameFull => try writeDayOfWeekNameFull(d, writer, Locale),
-            .DayOfWeekNameShort => try writeDayOfWeekNameShort(d, writer, Locale),
-            .DayOfWeekNameFirstLetter => try writeDayOfWeekNameFirstLetter(d, writer, Locale),
-            .DayOfWeekNameFirst2Letters => try writeDayOfWeekNameFirst2Letters(d, writer, Locale),
-            .TimeOfDayLocale => try Locale.timeOfDay(writer, timeOf(d)),
+            .DayOfWeekOrdinal => try locale.ordinal(writer, dayOfWeekToNum(dayOfWeekOf(d))),
+            .DayOfWeekNameFull => try writeDayOfWeekNameFull(d, writer, locale),
+            .DayOfWeekNameShort => try writeDayOfWeekNameShort(d, writer, locale),
+            .DayOfWeekNameFirstLetter => try writeDayOfWeekNameFirstLetter(d, writer, locale),
+            .DayOfWeekNameFirst2Letters => try writeDayOfWeekNameFirst2Letters(d, writer, locale),
+            .TimeOfDayLocale => try locale.timeOfDay(writer, timeOf(d)),
             .TimeOfDayAM, .TimeOfDay_am, .TimeOfDay_ap, .TimeOfDay_a_m => |e| try writeTimeOfDay(d, writer, e),
             .Hour12Num => try writeHour12(d, writer, seg.str.len),
-            .Hour12Ordinal => try Locale.ordinal(writer, hour12Of(d)),
+            .Hour12Ordinal => try locale.ordinal(writer, hour12Of(d)),
             .Hour24Num => try writeHour24(d, writer, seg.str.len),
-            .Hour24Ordinal => try Locale.ordinal(writer, hour24Of(d)),
+            .Hour24Ordinal => try locale.ordinal(writer, hour24Of(d)),
             .MinuteNum => try writeMinute(d, writer, seg.str.len),
-            .MinuteOrdinal => try Locale.ordinal(writer, minuteOf(d)),
+            .MinuteOrdinal => try locale.ordinal(writer, minuteOf(d)),
             .SecondNum => try writeSecond(d, writer, seg.str.len),
-            .SecondOrdinal => try Locale.ordinal(writer, secondOf(d)),
+            .SecondOrdinal => try locale.ordinal(writer, secondOf(d)),
             .FractionOfASecond => try writeSecondFraction(d, writer, seg.str.len),
-            .GmtOffset => try writeGmtOffset(d, writer),
+            .GmtOffset => try writeGmtOffset(d, writer, seg.str.len),
             .GmtOffsetFull => try writeGmtOffsetFull(d, writer),
             .TimezoneOffset => try writeTz(d, writer, seg.str.len),
             .TimezoneOffsetZ => try writeTzZ(d, writer, seg.str.len),
-            .LocalizedLongDate => try writeLocalizedDate(d, writer, seg.str.len, Locale),
-            .LocalizedLongTime => try writeLocalizedTime(d, writer, seg.str.len, Locale),
-            .LocalizedLongDateTime => try writeLocalizedDateTime(d, writer, seg.str.len, Locale),
+            .LocalizedLongDate => try writeLocalizedDate(d, writer, seg.str.len, locale),
+            .LocalizedLongTime => try writeLocalizedTime(d, writer, seg.str.len, locale),
+            .LocalizedLongDateTime => try writeLocalizedDateTime(d, writer, seg.str.len, locale),
             .CalendarSystem => try writeCalendarSystem(d, writer),
         }
     }
 }
 
-fn writeDayOfWeekNameFirst2Letters(zoned_date: anytype, writer: anytype, Locale: type) !void {
+fn writeDayOfWeekNameFirst2Letters(zoned_date: anytype, writer: anytype, locale: anytype) !void {
     const Date = @TypeOf(zoned_date);
     if (comptime features.hasDayOfWeekNameFirst2Letters(Date)) {
         try writer.writeAll(zoned_date.dayOfWeekNameFirst2Letters());
     } else if (comptime features.hasDate(Date) and features.hasDayOfWeekNameFirst2Letters(Date.Date)) {
         try writer.writeAll(zoned_date.date.dayOfWeekNameFull());
     } else {
-        try Locale.dayOfWeekFirst2Letters(writer, dayOfWeekOf(u32, zoned_date));
+        try locale.dayOfWeekFirst2Letters(writer, dayOfWeekOf(zoned_date));
     }
 }
 
-fn writeDayOfWeekNameFirstLetter(zoned_date: anytype, writer: anytype, Locale: type) !void {
+fn writeDayOfWeekNameFirstLetter(zoned_date: anytype, writer: anytype, locale: anytype) !void {
     const Date = @TypeOf(zoned_date);
     if (comptime features.hasDayOfWeekNameFirstLetter(@TypeOf(zoned_date))) {
         try writer.writeAll(zoned_date.dayOfWeekNameFirstLetter());
     } else if (comptime features.hasDate(Date) and features.hasDayOfWeekNameFirstLetter(Date.Date)) {
         try writer.writeAll(zoned_date.date.dayOfWeekNameFirstLetter());
     } else {
-        try Locale.dayOfWeekFirstLetter(writer, dayOfWeekOf(u32, zoned_date));
+        try locale.dayOfWeekFirstLetter(writer, dayOfWeekOf(zoned_date));
     }
 }
 
-fn writeDayOfWeekNameShort(zoned_date: anytype, writer: anytype, Locale: type) !void {
+fn writeDayOfWeekNameShort(zoned_date: anytype, writer: anytype, locale: anytype) !void {
     const Date = @TypeOf(zoned_date);
     if (comptime features.hasDayOfWeekNameShort(Date)) {
         try writer.writeAll(zoned_date.dayOfWeekNameShort());
     } else if (comptime features.hasDate(Date) and features.hasDayOfWeekNameShort(Date.Date)) {
         try writer.writeAll(zoned_date.date.dayOfWeekNameShort());
     } else {
-        try Locale.dayOfWeekShort(writer, dayOfWeekOf(u32, zoned_date));
+        try locale.dayOfWeekShort(writer, dayOfWeekOf(zoned_date));
     }
 }
 
-fn writeDayOfWeekNameFull(zoned_date: anytype, writer: anytype, Locale: type) !void {
+fn writeDayOfWeekNameFull(zoned_date: anytype, writer: anytype, locale: anytype) !void {
     const Date = @TypeOf(zoned_date);
     if (comptime features.hasDayOfWeekNameFull(Date)) {
         try writer.writeAll(zoned_date.dayOfWeekNameFull());
     } else if (comptime features.hasDate(Date) and features.hasDayOfWeekNameFull(Date.Date)) {
         try writer.writeAll(zoned_date.date.dayOfWeekNameFull());
     } else {
-        try Locale.dayOfWeekFull(writer, dayOfWeekOf(u32, zoned_date));
+        try locale.dayOfWeekFull(writer, dayOfWeekOf(zoned_date));
     }
 }
 
@@ -131,51 +139,51 @@ fn writeLocalizedDate(
     zoned_date: anytype,
     writer: anytype,
     variant: usize,
-    Locale: type,
+    locale: anytype,
 ) (@TypeOf(writer).Error)!void {
     const parseFormatStr = @import("../formatting.zig").parseFormatStr;
     const lfs = switch (variant) {
-        4 => Locale.date_full,
-        3 => Locale.date_long,
-        2 => Locale.date_medium,
-        else => Locale.date_short,
+        4 => locale.dateFull(),
+        3 => locale.dateLong(),
+        2 => locale.dateMedium(),
+        else => locale.dateShort(),
     };
     const fmt = parseFormatStr(lfs) catch unreachable;
-    try formatDate(&fmt, zoned_date, writer, Locale);
+    try formatDate(&fmt, zoned_date, writer, locale);
 }
 
 fn writeLocalizedDateTime(
     zoned_date: anytype,
     writer: anytype,
     variant: usize,
-    Locale: type,
+    locale: anytype,
 ) (@TypeOf(writer).Error)!void {
     const parseFormatStr = @import("../formatting.zig").parseFormatStr;
     const lfs = switch (variant) {
-        7, 8 => Locale.datetime_full,
-        5, 6 => Locale.datetime_long,
-        3, 4 => Locale.datetime_medium,
-        else => Locale.datetime_short,
+        7, 8 => locale.dateTimeFull(),
+        5, 6 => locale.dateTimeLong(),
+        3, 4 => locale.dateTimeMedium(),
+        else => locale.dateTimeShort(),
     };
     const fmt = parseFormatStr(lfs) catch unreachable;
-    try formatDate(&fmt, zoned_date, writer, Locale);
+    try formatDate(&fmt, zoned_date, writer, locale);
 }
 
 fn writeLocalizedTime(
     zoned_date: anytype,
     writer: anytype,
     variant: usize,
-    Locale: type,
+    locale: anytype,
 ) (@TypeOf(writer).Error)!void {
     const parseFormatStr = @import("../formatting.zig").parseFormatStr;
     const lfs = switch (variant) {
-        4 => Locale.time_full,
-        3 => Locale.time_long,
-        2 => Locale.time_medium,
-        else => Locale.time_short,
+        4 => locale.timeFull(),
+        3 => locale.timeLong(),
+        2 => locale.timeMedium(),
+        else => locale.timeShort(),
     };
     const fmt = parseFormatStr(lfs) catch unreachable;
-    try formatDate(&fmt, zoned_date, writer, Locale);
+    try formatDate(&fmt, zoned_date, writer, locale);
 }
 
 fn writeTzZ(zoned_date: anytype, writer: anytype, variant: usize) !void {
@@ -305,9 +313,14 @@ fn writeGmtOffsetFull(zoned_date: anytype, writer: anytype) !void {
     }
 }
 
-fn writeGmtOffset(zoned_date: anytype, writer: anytype) !void {
+fn writeGmtOffset(zoned_date: anytype, writer: anytype, variant: usize) !void {
     const tz = timezoneOf(zoned_date);
     const offset = tz.offset();
+
+    if (variant == 1 and tz.compareOffset(zone.GMT) == 0) {
+        try writer.writeAll("GMT");
+        return;
+    }
 
     const sign: u8 = if (offset.hours < 0) '-' else '+';
     const hour: u32 = @intCast(@abs(offset.hours));
@@ -468,7 +481,7 @@ fn timeOf(zoned_date: anytype) @import("../calendars/time.zig").Segments {
 
 fn writeDayOfWeekOf(zoned_date: anytype, writer: anytype, padding: usize) !void {
     std.debug.assert(padding <= 2);
-    const day_of_week = dayOfWeekOf(u32, zoned_date);
+    const day_of_week = dayOfWeekToNum(dayOfWeekOf(zoned_date));
     if (padding <= 1) {
         try writer.print("{d}", .{day_of_week});
     } else {
@@ -489,7 +502,7 @@ fn writeDayOfYear(zoned_date: anytype, writer: anytype, padding: usize) !void {
     try writer.print("{d}", .{day});
 }
 
-fn writeMonthInitial(zoned_date: anytype, writer: anytype, comptime Locale: type) !void {
+fn writeMonthInitial(zoned_date: anytype, writer: anytype, locale: anytype) !void {
     const Date = @TypeOf(zoned_date);
 
     if (comptime features.hasMonthNameFirstLetter(Date)) {
@@ -497,11 +510,11 @@ fn writeMonthInitial(zoned_date: anytype, writer: anytype, comptime Locale: type
     } else if (comptime features.hasDate(Date) and features.hasMonthNameFirstLetter(Date.Date)) {
         try writer.writeAll(zoned_date.date.monthNameFirstLetter());
     } else {
-        try Locale.monthNameFirstLetter(writer, monthOf(u32, zoned_date));
+        try locale.monthNameFirstLetter(writer, monthOf(u32, zoned_date));
     }
 }
 
-fn writeMonthLong(zoned_date: anytype, writer: anytype, comptime Locale: type) !void {
+fn writeMonthLong(zoned_date: anytype, writer: anytype, locale: anytype) !void {
     const Date = @TypeOf(zoned_date);
 
     if (comptime features.hasMonthNameLong(Date)) {
@@ -509,11 +522,11 @@ fn writeMonthLong(zoned_date: anytype, writer: anytype, comptime Locale: type) !
     } else if (comptime features.hasDate(Date) and features.hasMonthNameLong(Date.Date)) {
         try writer.writeAll(zoned_date.date.monthNameLong());
     } else {
-        try Locale.monthNameLong(writer, monthOf(u32, zoned_date));
+        try locale.monthNameLong(writer, monthOf(u32, zoned_date));
     }
 }
 
-fn writeMonthShort(zoned_date: anytype, writer: anytype, comptime Locale: type) !void {
+fn writeMonthShort(zoned_date: anytype, writer: anytype, locale: anytype) !void {
     const Date = @TypeOf(zoned_date);
     const month = monthOf(u32, zoned_date);
 
@@ -522,7 +535,7 @@ fn writeMonthShort(zoned_date: anytype, writer: anytype, comptime Locale: type) 
     } else if (comptime features.hasDate(Date) and features.hasMonthNameShort(Date.Date)) {
         try writer.writeAll(zoned_date.date.monthNameShort());
     } else {
-        try Locale.monthNameShort(writer, month);
+        try locale.monthNameShort(writer, month);
     }
 }
 
@@ -552,21 +565,21 @@ fn writeText(text: []const u8, writer: anytype) !void {
     }
 }
 
-fn eraDesignatorLong(zoned_date: anytype, writer: anytype, comptime Locale: type) !void {
+fn eraDesignatorLong(zoned_date: anytype, writer: anytype, locale: anytype) !void {
     const year = yearOf(i32, zoned_date);
     if (year <= 0) {
-        try writer.writeAll(Locale.BC_Long);
+        try writer.writeAll(locale.bcLong());
     } else {
-        try writer.writeAll(Locale.AD_Long);
+        try writer.writeAll(locale.adLong());
     }
 }
 
-fn eraDesignatorShort(zoned_date: anytype, writer: anytype, comptime Locale: type) !void {
+fn eraDesignatorShort(zoned_date: anytype, writer: anytype, locale: anytype) !void {
     const year = yearOf(i32, zoned_date);
     if (year <= 0) {
-        try writer.writeAll(Locale.BC_Short);
+        try writer.writeAll(locale.bcShort());
     } else {
-        try writer.writeAll(Locale.AD_Short);
+        try writer.writeAll(locale.adShort());
     }
 }
 
@@ -596,6 +609,23 @@ fn writeSignedYear(zoned_date: anytype, writer: anytype, padding: usize) !void {
     }
 
     try writer.print("{d}", .{@as(u32, @intCast(@abs(year)))});
+}
+
+fn writeIsoYear(zoned_date: anytype, writer: anytype, padding: usize) !void {
+    const year_s = yearOf(i32, zoned_date);
+    const year: u32 = @intCast(@abs(year_s));
+    const out_len = @as(usize, @intFromFloat(@floor(std.math.log10(@as(f64, @floatFromInt(year))))));
+
+    if (year_s < 0) {
+        try writer.writeByte('-');
+    }
+
+    if (out_len < padding) {
+        const pad = padding - out_len - 1;
+        try writer.writeByteNTimes('0', pad);
+    }
+
+    try writer.print("{d}", .{year});
 }
 
 fn writeUnsignedYear(zoned_date: anytype, writer: anytype, padding: usize) !void {
@@ -730,29 +760,28 @@ fn monthOf(comptime Out: type, zoned_date: anytype) Out {
     return month;
 }
 
-fn dayOfWeekOf(comptime Out: type, zoned_date: anytype) Out {
-    comptime std.debug.assert(Out == i32 or Out == u32);
+fn dayOfWeekOf(zoned_date: anytype) core.DayOfWeek {
     const Date = @TypeOf(zoned_date);
     if (comptime features.isUnixTimestamp(Date)) {
-        return dayOfWeekOf(Out, convert(zoned_date, gregorian.DateTimeZoned));
+        return dayOfWeekOf(convert(zoned_date, gregorian.DateTimeZoned));
     }
 
     comptime std.debug.assert(features.hasDate(Date));
 
-    var week_day: Out = undefined;
-    const toOut = if (comptime Out == u32) toU32 else toI32;
+    var week_day: core.DayOfWeek = undefined;
     if (std.meta.hasMethod(Date, "dayOfWeek")) {
-        week_day = toOut(zoned_date.dayOfWeek()) + 1;
+        week_day = zoned_date.dayOfWeek();
     } else if (@hasField(Date, "day_of_week")) {
-        week_day = toOut(zoned_date.dayOfWeek) + 1;
+        week_day = zoned_date.dayOfWeek;
     } else if (std.meta.hasMethod(Date.Date, "dayOfWeek")) {
-        week_day = toOut(zoned_date.date.dayOfWeek()) + 1;
+        week_day = zoned_date.date.dayOfWeek();
     } else if (@hasField(Date.Date, "day_of_week")) {
-        week_day = toOut(zoned_date.date.dayOfWeek) + 1;
+        week_day = zoned_date.date.day_of_week;
     } else {
         const c = convert(zoned_date, gregorian.DateTimeZoned);
-        week_day = toOut(c.dayOfWeek()) + 1;
+        week_day = c.dayOfWeek();
     }
+
     return week_day;
 }
 
@@ -951,6 +980,7 @@ test "formatting Gregorian/Unix A.D." {
     const Gregorian = @import("../calendars.zig").gregorian.DateTimeZoned;
     const Unix = unix.Timestamp;
     const Locale = @import("l10n.zig").EnUsLocale;
+    const locale = Locale{};
 
     const date = try Gregorian.init(
         try Gregorian.Date.initNums(80, 8, 24),
@@ -984,7 +1014,7 @@ test "formatting Gregorian/Unix A.D." {
             // Direct formatting gregorian should have custom timezone
             .expected = "GMT+6:03 GMT+6:03 GMT+6:03 GMT+06:03",
             // Formatting unix timestamp will be in UTC timezone
-            .utc_expected = "GMT+0 GMT+0 GMT+0 GMT+00:00",
+            .utc_expected = "GMT GMT+0 GMT+0 GMT+00:00",
         },
         .{
             .format_str = "x xx xxx xxxx xxxxx",
@@ -1014,7 +1044,7 @@ test "formatting Gregorian/Unix A.D." {
             // gregorian
             fbs.reset();
             const fmt = try parseFormatStr(tc.format_str);
-            try formatDate(&fmt, date, fbs.writer(), Locale);
+            try formatDate(&fmt, date, fbs.writer(), locale);
             try std.testing.expectEqualStrings(tc.expected, fbs.getWritten());
         }
 
@@ -1022,7 +1052,7 @@ test "formatting Gregorian/Unix A.D." {
             // unix
             fbs.reset();
             const fmt = try parseFormatStr(tc.format_str);
-            try formatDate(&fmt, unix_date, fbs.writer(), Locale);
+            try formatDate(&fmt, unix_date, fbs.writer(), locale);
             try std.testing.expectEqualStrings(
                 tc.utc_expected orelse tc.expected,
                 fbs.getWritten(),
@@ -1037,6 +1067,7 @@ test "formatting Gregorian B.C." {
     const parseFormatStr = @import("../formatting.zig").parseFormatStr;
     const Gregorian = @import("../calendars.zig").gregorian.DateTimeZoned;
     const Locale = @import("l10n.zig").EnUsLocale;
+    const locale = Locale{};
 
     const date = try Gregorian.init(
         try Gregorian.Date.initNums(-79, 8, 7),
@@ -1049,12 +1080,15 @@ test "formatting Gregorian B.C." {
     };
 
     const tcs = [_]TestCase{
-        .{ .format_str = "yo Yo YYYY-MM-dd G MMM MMMM MMMMM", .expected = "80th 80th 0080-08-07 BC Aug August A" },
-        .{ .format_str = "do/MM/YY GG", .expected = "7th/08/80 BC" },
+        .{
+            .format_str = "yo Yo YYYY-MM-dd G MMM MMMM MMMMM yyyy",
+            .expected = "80th 80th -0079-08-07 BC Aug August A 0080",
+        },
+        .{ .format_str = "do/MM/''yy GG 'GG'", .expected = "7th/08/80 BC GG" },
         .{ .format_str = "d.M.yGGGG", .expected = "7.8.80Before Christ" },
         .{ .format_str = "uuuuu.M.dGG", .expected = "-00079.8.7BC" },
         .{ .format_str = "A AA AAA AAAA AAAAA", .expected = "AM AM am a.m. a" },
-        .{ .format_str = "u Q QQ Qo e ee eo aa", .expected = "-79 3 03 3rd 1 01 1st AM" },
+        .{ .format_str = "u Q QQ Qo e ee eo aa", .expected = "-79 3 03 3rd 7 07 7th AM" },
         .{ .format_str = "eee eeee eeeee eeeeee", .expected = "Sun Sunday S Su" },
         .{
             .format_str = "SSS SSSSSSSSSSSSSS SSSSSSSSSSSSSSSSSS",
@@ -1085,7 +1119,7 @@ test "formatting Gregorian B.C." {
     for (tcs) |tc| {
         fbs.reset();
         const fmt = try parseFormatStr(tc.format_str);
-        try formatDate(&fmt, date, fbs.writer(), Locale);
+        try formatDate(&fmt, date, fbs.writer(), locale);
         try std.testing.expectEqualStrings(tc.expected, fbs.getWritten());
     }
 }

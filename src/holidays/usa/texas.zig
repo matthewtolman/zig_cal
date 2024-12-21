@@ -6,13 +6,17 @@ const AstronomicalYear = @import("../../calendars.zig").AstronomicalYear;
 const Gregorian = @import("../../calendars.zig").gregorian.Date;
 
 pub fn roshHashanah(year: AstronomicalYear) [2]Gregorian {
-    const hebrew = toGregorianRange(Hebrew, 2, year, @import("../hebrew.zig").roshHaShanah);
-    @import("std").debug.assert(hebrew.data().len >= 2);
-    return [2]Gregorian{ hebrew.data()[0], hebrew.data()[1] };
+    const roshHaShanah = @import("../hebrew.zig").asGregorian.roshHaShanah;
+    const dates = roshHaShanah(year);
+    @import("std").debug.assert(dates.data().len >= 2);
+    return [2]Gregorian{
+        dates.data()[0],
+        dates.data()[1],
+    };
 }
 
 pub fn yomKippur(year: AstronomicalYear) Gregorian {
-    return toGregorian(Hebrew, year, @import("../hebrew.zig").yomKippur).data()[0];
+    return @import("../hebrew.zig").asGregorian.yomKippur(year).data()[0];
 }
 
 pub fn dayAfterThanksgiving(year: AstronomicalYear) Gregorian {

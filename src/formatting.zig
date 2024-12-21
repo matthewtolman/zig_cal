@@ -101,6 +101,35 @@ const CharIter = struct {
         return res;
     }
 
+    /// Consumes n characters
+    pub fn consumeQuote(self: *@This()) ![]const u8 {
+        if (self.atEnd()) {
+            unreachable;
+        }
+
+        const start = self.pos();
+        var escaped = false;
+        var counter: usize = 0;
+
+        while (self.next()) |c| {
+            defer counter += 1;
+            if (counter > 5000) {
+                return ParseFormatError.LoopTooLong;
+            }
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\'') {
+                _ = self.next();
+                return self._input[(start + 1)..(self.pos() - 1)];
+            } else if (c == '\\') {
+                escaped = true;
+            }
+        }
+        return ParseFormatError.UnexpectedEndOfFile;
+    }
+
     /// Consumes a repeated character
     pub fn consumeRepeat(self: *@This(), max: usize) ![]const u8 {
         if (self.atEnd()) {
@@ -170,7 +199,7 @@ const Tokenizer = struct {
         const seg_start = self._iter.cur();
         if (seg_start) |start| {
             const escape: u8 = '\\';
-            const non_text = "yYDduRMQeEaAhHmsSGXxOPpC";
+            const non_text = "yYDduRMQeEaAhHmsSGXxOPpC'";
             switch (start) {
                 'Y' => {
                     if (self._iter.peek() == 'o') {
@@ -181,7 +210,7 @@ const Tokenizer = struct {
                     }
 
                     return .{
-                        .type = .Year,
+                        .type = .YearIso,
                         .str = try self._iter.consumeRepeat(500),
                     };
                 },
@@ -512,6 +541,12 @@ const Tokenizer = struct {
                         .str = try self._iter.consumeN(1),
                     };
                 },
+                '\'' => {
+                    return .{
+                        .type = .TextQuoted,
+                        .str = try self._iter.consumeQuote(),
+                    };
+                },
                 else => {
                     return .{
                         .type = .Text,
@@ -525,10 +560,10 @@ const Tokenizer = struct {
 };
 
 /// Parses a format string
-pub fn parseFormatStr(format: []const u8) !Format {
+pub fn parseFormatStr(fmt: []const u8) !Format {
     var res = Format{};
     var tokenizer = Tokenizer{
-        ._iter = CharIter.init(format),
+        ._iter = CharIter.init(fmt),
     };
 
     var counter: usize = 0;
@@ -543,12 +578,34 @@ pub fn parseFormatStr(format: []const u8) !Format {
     return res;
 }
 
-// /// Format
-// pub fn format(out_writer: anytype, date: anytype, format: []const u8) !void {
-//     const fmt = try parseFormatStr(format);
-// }
+/// Formats a date and prints formatted date into a writer
+pub fn formatDateLocale(fmt: Format, date: anytype, writer: anytype, locale: anytype) !void {
+    const fd = @import("formatting/format.zig").formatDate;
+    try fd(&fmt, date, writer, locale);
+}
+
+/// Formats a date and prints formatted date into a writer
+pub fn formatDate(fmt: Format, date: anytype, writer: anytype) !void {
+    const locale = @import("formatting/l10n.zig").EnUsLocale{};
+    try formatDateLocale(&fmt, date, writer, locale);
+}
+
+/// Formats a date and prints formatted date into a writer
+pub fn format(fmt: []const u8, date: anytype, writer: anytype) !void {
+    const locale = @import("formatting/l10n.zig").EnUsLocale{};
+    const f = try parseFormatStr(fmt);
+    try formatDateLocale(f, date, writer, locale);
+}
+
+/// Formats a date and prints formatted date into a writer
+/// Uses a specific locale for any locale-specific formatting
+pub fn formatLocale(fmt: []const u8, date: anytype, writer: anytype, locale: anytype) !void {
+    const f = try parseFormatStr(fmt);
+    try formatDateLocale(f, date, writer, locale);
+}
 
 test {
     _ = @import("formatting/parse_tests.zig");
     _ = @import("formatting/format.zig");
+    _ = @import("formatting/format_tests.zig");
 }

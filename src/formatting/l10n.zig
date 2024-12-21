@@ -3,6 +3,7 @@ const Wrapper = @import("../calendars/wrappers.zig");
 const std = @import("std");
 const TimeSegments = @import("../calendars/time.zig").Segments;
 const features = @import("../utils/features.zig");
+const DayOfWeek = @import("../calendars.zig").DayOfWeek;
 
 pub const SegmentLen = enum {
     Shortest,
@@ -32,25 +33,25 @@ pub fn ZonedDateTimeOf(comptime Cal: type) type {
 }
 
 pub fn assertValidLocale(Locale: type) void {
-    comptime std.debug.assert(@hasDecl(Locale, "AD_Long"));
-    comptime std.debug.assert(@hasDecl(Locale, "AD_Short"));
-    comptime std.debug.assert(@hasDecl(Locale, "BC_Long"));
-    comptime std.debug.assert(@hasDecl(Locale, "BC_Short"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "adLong"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "bcLong"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "adShort"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "bcShort"));
 
-    comptime std.debug.assert(@hasDecl(Locale, "date_full"));
-    comptime std.debug.assert(@hasDecl(Locale, "date_long"));
-    comptime std.debug.assert(@hasDecl(Locale, "date_medium"));
-    comptime std.debug.assert(@hasDecl(Locale, "date_short"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "dateFull"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "dateLong"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "dateMedium"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "dateShort"));
 
-    comptime std.debug.assert(@hasDecl(Locale, "time_full"));
-    comptime std.debug.assert(@hasDecl(Locale, "time_long"));
-    comptime std.debug.assert(@hasDecl(Locale, "time_medium"));
-    comptime std.debug.assert(@hasDecl(Locale, "time_short"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "dateTimeFull"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "dateTimeLong"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "dateTimeMedium"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "dateTimeShort"));
 
-    comptime std.debug.assert(@hasDecl(Locale, "datetime_full"));
-    comptime std.debug.assert(@hasDecl(Locale, "datetime_long"));
-    comptime std.debug.assert(@hasDecl(Locale, "datetime_medium"));
-    comptime std.debug.assert(@hasDecl(Locale, "datetime_short"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "timeFull"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "timeLong"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "timeMedium"));
+    comptime std.debug.assert(std.meta.hasFn(Locale, "timeShort"));
 
     comptime std.debug.assert(std.meta.hasFn(Locale, "ordinal"));
 
@@ -72,27 +73,59 @@ pub fn assertValidLocale(Locale: type) void {
 pub const EnUsLocale = struct {
     pub const locale = "en-us";
 
-    pub const AD_Long = "Anno Domini";
-    pub const BC_Long = "Before Christ";
-    pub const AD_Short = "AD";
-    pub const BC_Short = "BC";
+    pub fn adLong(_: @This()) []const u8 {
+        return "Anno Domini";
+    }
+    pub fn bcLong(_: @This()) []const u8 {
+        return "Before Christ";
+    }
+    pub fn adShort(_: @This()) []const u8 {
+        return "AD";
+    }
+    pub fn bcShort(_: @This()) []const u8 {
+        return "BC";
+    }
 
-    pub const date_full = "EEEE, MMMM d, y G";
-    pub const date_long = "MMMM d, y";
-    pub const date_medium = "MMM d, y";
-    pub const date_short = "M/d/y";
+    pub fn dateFull(_: @This()) []const u8 {
+        return "EEEE, MMMM d, y G";
+    }
+    pub fn dateLong(_: @This()) []const u8 {
+        return "MMMM d, y";
+    }
+    pub fn dateMedium(_: @This()) []const u8 {
+        return "MMM d, y";
+    }
+    pub fn dateShort(_: @This()) []const u8 {
+        return "M/d/y";
+    }
 
-    pub const time_full = "h:mm:ss a xxx";
-    pub const time_long = "h:mm:ss a xxx";
-    pub const time_medium = "h:mm:ss a";
-    pub const time_short = "h:mm a";
+    pub fn timeFull(_: @This()) []const u8 {
+        return "h:mm:ss a xxx";
+    }
+    pub fn timeLong(_: @This()) []const u8 {
+        return "h:mm:ss a xxx";
+    }
+    pub fn timeMedium(_: @This()) []const u8 {
+        return "h:mm:ss a";
+    }
+    pub fn timeShort(_: @This()) []const u8 {
+        return "h:mm a";
+    }
 
-    pub const datetime_full = "EEEE, MMMM d, y G, h:mm:ss a xxx";
-    pub const datetime_long = "MMMM d, y, h:mm:ss a xxx";
-    pub const datetime_medium = "MMM d, y, h:mm:ss a";
-    pub const datetime_short = "M/d/y, h:mm a";
+    pub fn dateTimeFull(_: @This()) []const u8 {
+        return "EEEE, MMMM d, y G, h:mm:ss a xxx";
+    }
+    pub fn dateTimeLong(_: @This()) []const u8 {
+        return "MMMM d, y, h:mm:ss a xxx";
+    }
+    pub fn dateTimeMedium(_: @This()) []const u8 {
+        return "MMM d, y, h:mm:ss a";
+    }
+    pub fn dateTimeShort(_: @This()) []const u8 {
+        return "M/d/y, h:mm a";
+    }
 
-    pub fn timeOfDay(writer: anytype, time: TimeSegments) !void {
+    pub fn timeOfDay(_: @This(), writer: anytype, time: TimeSegments) !void {
         if (time.hour < 12) {
             try writer.writeAll("AM");
         } else {
@@ -100,59 +133,53 @@ pub const EnUsLocale = struct {
         }
     }
 
-    pub fn dayOfWeekFirst2Letters(writer: anytype, day_of_week: u32) !void {
+    pub fn dayOfWeekFirst2Letters(_: @This(), writer: anytype, day_of_week: DayOfWeek) !void {
         switch (day_of_week) {
-            1 => try writer.writeAll("Su"),
-            2 => try writer.writeAll("Mo"),
-            3 => try writer.writeAll("Tu"),
-            4 => try writer.writeAll("We"),
-            5 => try writer.writeAll("Th"),
-            6 => try writer.writeAll("Fr"),
-            7 => try writer.writeAll("Sa"),
-            else => try writer.writeAll("??"),
+            .Sunday => try writer.writeAll("Su"),
+            .Monday => try writer.writeAll("Mo"),
+            .Tuesday => try writer.writeAll("Tu"),
+            .Wednesday => try writer.writeAll("We"),
+            .Thursday => try writer.writeAll("Th"),
+            .Friday => try writer.writeAll("Fr"),
+            .Saturday => try writer.writeAll("Sa"),
         }
     }
 
-    pub fn dayOfWeekFirstLetter(writer: anytype, day_of_week: u32) !void {
+    pub fn dayOfWeekFirstLetter(_: @This(), writer: anytype, day_of_week: DayOfWeek) !void {
         switch (day_of_week) {
-            1, 7 => try writer.writeAll("S"),
-            2 => try writer.writeAll("M"),
-            3, 5 => try writer.writeAll("T"),
-            4 => try writer.writeAll("W"),
-            6 => try writer.writeAll("F"),
-            else => try writer.writeAll("?"),
+            .Sunday, .Saturday => try writer.writeAll("S"),
+            .Monday => try writer.writeAll("M"),
+            .Tuesday, .Thursday => try writer.writeAll("T"),
+            .Wednesday => try writer.writeAll("W"),
+            .Friday => try writer.writeAll("F"),
         }
     }
 
-    pub fn dayOfWeekFull(writer: anytype, day_of_week: u32) !void {
+    pub fn dayOfWeekFull(_: @This(), writer: anytype, day_of_week: DayOfWeek) !void {
         switch (day_of_week) {
-            1 => try writer.writeAll("Sunday"),
-            2 => try writer.writeAll("Monday"),
-            3 => try writer.writeAll("Tuesday"),
-            4 => try writer.writeAll("Wednesday"),
-            5 => try writer.writeAll("Thurdsay"),
-            6 => try writer.writeAll("Friday"),
-            7 => try writer.writeAll("Saturday"),
-            else => {
-                try writer.writeAll("Unknown");
-            },
+            .Sunday => try writer.writeAll("Sunday"),
+            .Monday => try writer.writeAll("Monday"),
+            .Tuesday => try writer.writeAll("Tuesday"),
+            .Wednesday => try writer.writeAll("Wednesday"),
+            .Thursday => try writer.writeAll("Thursday"),
+            .Friday => try writer.writeAll("Friday"),
+            .Saturday => try writer.writeAll("Saturday"),
         }
     }
 
-    pub fn dayOfWeekShort(writer: anytype, day_of_week: u32) !void {
+    pub fn dayOfWeekShort(_: @This(), writer: anytype, day_of_week: DayOfWeek) !void {
         switch (day_of_week) {
-            1 => try writer.writeAll("Sun"),
-            2 => try writer.writeAll("Mon"),
-            3 => try writer.writeAll("Tue"),
-            4 => try writer.writeAll("Wed"),
-            5 => try writer.writeAll("Thu"),
-            6 => try writer.writeAll("Fri"),
-            7 => try writer.writeAll("Sat"),
-            else => try writer.writeAll("???"),
+            .Sunday => try writer.writeAll("Sun"),
+            .Monday => try writer.writeAll("Mon"),
+            .Tuesday => try writer.writeAll("Tue"),
+            .Wednesday => try writer.writeAll("Wed"),
+            .Thursday => try writer.writeAll("Thu"),
+            .Friday => try writer.writeAll("Fri"),
+            .Saturday => try writer.writeAll("Sat"),
         }
     }
 
-    pub fn monthNameShort(writer: anytype, month: u32) !void {
+    pub fn monthNameShort(_: @This(), writer: anytype, month: u32) !void {
         switch (month) {
             1 => try writer.writeAll("Jan"),
             2 => try writer.writeAll("Feb"),
@@ -170,7 +197,7 @@ pub const EnUsLocale = struct {
         }
     }
 
-    pub fn monthNameLong(writer: anytype, month: u32) !void {
+    pub fn monthNameLong(_: @This(), writer: anytype, month: u32) !void {
         switch (month) {
             1 => try writer.writeAll("January"),
             2 => try writer.writeAll("February"),
@@ -188,7 +215,7 @@ pub const EnUsLocale = struct {
         }
     }
 
-    pub fn monthNameFirstLetter(writer: anytype, month: u32) !void {
+    pub fn monthNameFirstLetter(_: @This(), writer: anytype, month: u32) !void {
         switch (month) {
             1 => try writer.writeAll("J"),
             2 => try writer.writeAll("F"),
@@ -203,15 +230,15 @@ pub const EnUsLocale = struct {
         }
     }
 
-    pub fn quarterShort(writer: anytype, quarter: u32) !void {
+    pub fn quarterShort(_: @This(), writer: anytype, quarter: u32) !void {
         try writer.print("Q{d}", .{quarter});
     }
 
-    pub fn quarterLong(writer: anytype, quarter: u32) !void {
+    pub fn quarterLong(_: @This(), writer: anytype, quarter: u32) !void {
         try writer.print("Quarter {d}", .{quarter});
     }
 
-    pub fn ordinal(writer: anytype, int: anytype) !void {
+    pub fn ordinal(_: @This(), writer: anytype, int: anytype) !void {
         const int_info = @typeInfo(@TypeOf(int));
         if (@hasField(@TypeOf(int_info), "Struct")) {
             comptime std.debug.assert(int_info == .ComptimeInt or int_info == .Int);
