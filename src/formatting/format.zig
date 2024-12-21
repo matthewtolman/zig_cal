@@ -601,6 +601,8 @@ fn writeSignedYear(zoned_date: anytype, writer: anytype, padding: usize) !void {
 
     if (year < 0) {
         try writer.writeByte('-');
+    } else {
+        try writer.writeByte('+');
     }
 
     if (out_len < padding) {
@@ -1002,13 +1004,13 @@ test "formatting Gregorian/Unix A.D." {
         .{ .format_str = "d-MM-YYYY G", .expected = "24-08-0080 AD" },
         .{ .format_str = "dd/YY/MM GGGG", .expected = "24/80/08 Anno Domini" },
         .{ .format_str = "y.M.dGG", .expected = "80.8.24AD" },
-        .{ .format_str = "uuuuu.M.dGG", .expected = "00080.8.24AD" },
+        .{ .format_str = "uuuuu.M.dGG", .expected = "+00080.8.24AD" },
         .{
             .format_str = "ho h hh Ho H HH mo m mm so s ss",
             .expected = "4th 4 04 16th 16 16 53rd 53 53 23rd 23 23",
             .utc_expected = "10th 10 10 10th 10 10 50th 50 50 23rd 23 23",
         },
-        .{ .format_str = "u Q QQ Qo D DDDD Do", .expected = "80 3 03 3rd 237 0237 237th" },
+        .{ .format_str = "u Q QQ Qo D DDDD Do", .expected = "+80 3 03 3rd 237 0237 237th" },
         .{
             .format_str = "O OO OOO OOOO",
             // Direct formatting gregorian should have custom timezone

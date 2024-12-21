@@ -331,6 +331,9 @@ fn getView(segment: Segment, input: []const u8, out: *ParsedData) ParseError!usi
         .TimeOfDay_a_m => {
             return consume_a_m(input, out);
         },
+        .TimeOfDayLocale => {
+            return consumeAM(input, out) catch consume_am(input, out) catch consume_a_m(input, out) catch consume_a_m(input, out);
+        },
         .Hour12Num => {
             const nums = try consumeNum(input, 2);
             const p = try std.fmt.parseInt(u8, nums, 10);
@@ -377,7 +380,6 @@ fn getView(segment: Segment, input: []const u8, out: *ParsedData) ParseError!usi
         .QuarterNum,
         .QuarterLong,
         .QuarterPrefixed,
-        .TimeOfDayLocale,
         .LocalizedLongDate,
         .LocalizedLongTime,
         .LocalizedLongDateTime,
@@ -970,6 +972,20 @@ test "parse ymd hms.S AAA O" {
     try std.testing.expectEqual(49, res.minute.?);
     try std.testing.expectEqual(32, res.second.?);
     try std.testing.expectEqualDeep(try Zone.init(.{ .hours = 8, .minutes = 43 }, null), res.zone.?);
+}
+
+test "parse ymd hms.S a" {
+    const res = try parseIntoStruct(
+        try parseFormatStr("YYYY-MM-ddThh:mm:ss.SSSSS a"),
+        "2024-07-01T08:49:32.58493 pm",
+    );
+    try std.testing.expectEqual(2024, res.year_signed.?);
+    try std.testing.expectEqual(7, res.month.?);
+    try std.testing.expectEqual(1, res.day_of_month.?);
+    try std.testing.expectEqual(8, res.hour_12.?);
+    try std.testing.expectEqual(.PM, res.time_of_day.?);
+    try std.testing.expectEqual(49, res.minute.?);
+    try std.testing.expectEqual(32, res.second.?);
 }
 
 test "parse ymd hms.S AAA" {
