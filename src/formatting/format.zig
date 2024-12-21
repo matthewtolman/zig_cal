@@ -858,9 +858,9 @@ fn toI32(val: anytype) i32 {
                 }
             },
             .Enum => {
-                if (@TypeOf(val) == core.AstronomicalYear) {
+                if (@TypeOf(val) == core.AnnoDominiYear) {
                     return @as(i32, @intCast(
-                        @intFromEnum(core.astroToAD(val) catch return 0),
+                        @intFromEnum(core.adToAstro(val) catch return 0),
                     ));
                 }
                 return @as(i32, @intCast(@as(i64, @intFromEnum(val))));
